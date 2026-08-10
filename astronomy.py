@@ -9,7 +9,7 @@ seen on a given evening from a given place:
   * visibility verdicts for the MABIMS 2023, Danjon and Odeh (2006) criteria
 
 The orbital model is Paul Schlyter's ("How to compute planetary positions")
-as vendored in the parent repo's ``solarsystem`` package, so this module needs
+as vendored in this repo's ``vendor/solarsystem`` package, so this module needs
 no extra dependency.
 """
 
