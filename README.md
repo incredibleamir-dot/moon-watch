@@ -1,17 +1,18 @@
-# Hilal Sighting - Ramadan / Eid new-crescent viewer
+# Moon Watch - Ramadan / Eid new-crescent viewer
 
 A pygame desktop app for predicting whether the new (hilal) crescent of Ramadan /
 Eid can be seen on a given evening from a given location. The look matches the
-neon HUD style of the parent `solar-system-kids` project: dark futuristic panels,
-glowing borders, scanlines and a taskbar.
+neon HUD style of the parent [`tiny-solarsystem`](https://github.com/incredibleamir-dot/tiny-solarsystem)
+project: dark futuristic panels, glowing borders, scanlines and a taskbar.
 
 ```
 python hilal_sighting.py
 ```
 
-No installation needed - all third-party libraries (pygame, numpy, pandas and
-their dependencies) are bundled in the `vendor/` folder at the repo root, and
-the app puts them on `sys.path` automatically. See *Download & run* below.
+Needs `pygame`, `numpy` and `pandas` (install once with `pip install -r
+requirements.txt`). The `solarsystem` astronomy library is vendored in the
+`vendor/` folder, so no astronomy dependency is needed. See *Download & run*
+below.
 
 ## Features
 
@@ -43,23 +44,43 @@ the app puts them on `sys.path` automatically. See *Download & run* below.
     the date);
   * an offline comparison of our visibility verdict against **8,000 recorded
     real-world sightings**, with per-method match rates.
+* **Ramadan & Eid dates** - a dialog (calendar button on the taskbar, or **D**)
+  that works out the previous and next **Ramadan**, **Eid ul-Fitr** and
+  **Eid ul-Adha** for the chosen location and date, using the app's own
+  local-crescent-visibility rule for each new month.
+
+## Screenshots
+
+![Sighting view](screenshots/view_sight.png)
+
+![Condition analysis](screenshots/view_cond.png)
+
+![Equation analysis](screenshots/view_equa.png)
+
+![Threshold analysis](screenshots/view_thres.png)
+
+![Verify view](screenshots/view_verify.png)
+
+![Setup](screenshots/view_setup.png)
+
+![Ramadan & Eid dates](screenshots/view_dates.png)
+
+![About](screenshots/view_about.png)
 
 ## Download & run
 
-The repository is **self-contained** - just download the folder and run:
-
 ```
+pip install -r requirements.txt
 python hilal_sighting.py
 ```
 
-* All third-party libraries (`pygame`, `numpy`, `pandas`, `python-dateutil`,
-  `pytz`, `six`, `tzdata`) are bundled in the repo's `vendor/` folder as
-  pre-built **Python 3.13 / Windows x64** packages and are picked up
-  automatically - no `pip install` is needed.
-* The `solarsystem` astronomy library is vendored in `solarsystem/` (also used
-  by the parent app).
-* If you use a different Python version / OS, install the same libraries
-  normally with `pip install -r requirements.txt` instead.
+* The app uses `pygame` (UI) and `numpy` / `pandas` (analysis charts) from PyPI
+  - they are **not** bundled, so a one-time `pip install -r requirements.txt`
+  is needed.
+* The `solarsystem` astronomy library is vendored in the repo's
+  `vendor/solarsystem/` folder (also used by the parent
+  [`tiny-solarsystem`](https://github.com/incredibleamir-dot/tiny-solarsystem)
+  app) - it has no external dependencies, so nothing extra is needed for it.
 
 ## Controls
 
@@ -71,6 +92,7 @@ python hilal_sighting.py
 | 5 or V     | switch to the Verify view      |
 | R          | (re)run the NASA HORIZONS check|
 | X          | cycle threshold parameter      |
+| D          | show/hide Ramadan & Eid dates  |
 | I          | show/hide About                |
 | F11        | toggle fullscreen              |
 | Esc        | close modal / exit fullscreen  |
@@ -195,10 +217,21 @@ These compare the chosen evening against **8,000+ real recorded sightings**
 * Below that, the **real-sightings** box shows how often our verdict matched the
   recorded sightings, overall and per method (naked eye / optical aid).
 
+### Ramadan & Eid dates dialog (calendar button / D)
+
+Opens a modal that lists the **previous and next** dates for **Ramadan**,
+**Eid ul-Fitr** (1 Shawwal) and **Eid ul-Adha** (10 Dhul Hijjah) for the chosen
+location and date. The month starts are found from the new-moon (conjunction)
+dates plus the app's own local rule: each month begins the day after the first
+evening on which the young crescent is actually above the horizon at sunset at
+your place, and the year is anchored to a well-known reference (1 Ramadan 1446 AH
+= 1 March 2025). Because it uses the same physics as the rest of the app, the
+dates can legitimately differ from a fixed civil calendar.
+
 ## Physics
 
 The orbital model is Paul Schlyter's ("How to compute planetary positions"),
-vendored as the `solarsystem` package in the parent repository - no extra
+vendored as the `solarsystem` package in this repo's `vendor/` folder - no extra
 astronomy dependency. Sunsets / moonsets are solved by iterating the apparent
 altitude through the atmospheric refraction horizon.
 
@@ -226,18 +259,14 @@ NASA/JPL HORIZONS ephemeris. The online tests skip automatically when offline.
 
 ## Requirements
 
-No installation is required - the app runs against the libraries bundled in the
-repo's `vendor/` folder:
-
-* `pygame` - UI
-* `numpy`, `pandas` - analysis charts
-
-The bundled copies are pre-built for **CPython 3.13 on Windows x64**. For other
-Python versions / OSes, install them normally first:
+Install once with pip (a `requirements.txt` at the repo root lists them):
 
 ```
 pip install -r requirements.txt
 ```
 
-The app must be run from inside the `solar-system-kids` repo so the vendored
-`solarsystem` package and the `vendor/` libraries can be found.
+* `pygame` - UI
+* `numpy`, `pandas` - analysis charts
+
+The `solarsystem` astronomy library is vendored at `vendor/solarsystem/` and has
+no external dependencies, so no astronomy package needs to be installed.

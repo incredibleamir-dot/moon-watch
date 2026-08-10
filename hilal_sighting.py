@@ -1,4 +1,4 @@
-"""Hilal Watch - a moon sighting system for Ramadan, Eid and every hilal.
+"""Moon Watch - a moon sighting system for Ramadan, Eid and every hilal.
 
 A colourful, futuristic pygame app (same neon look as the Solar System Kids
 explorer) that answers one question: *can we see the new crescent moon this
@@ -301,7 +301,7 @@ class HilalApp:
     def __init__(self):
         pygame.init()
         self.screen = pygame.display.set_mode((W, H))
-        pygame.display.set_caption("Hilal Watch - Moon Sighting System")
+        pygame.display.set_caption("Moon Watch - Moon Sighting System")
         self.clock = pygame.time.Clock()
 
         self.font_title = self.get_font(28)
@@ -332,7 +332,7 @@ class HilalApp:
         self.scanlines = self.make_scanlines()
         self.divider = self.make_divider(PANEL_W - 48)
         self.taskbar_grad = self.make_taskbar_grad()
-        self.title_surf = self.neon("HILAL WATCH", self.font_title, C_CYAN)
+        self.title_surf = self.neon("MOON WATCH", self.font_title, C_CYAN)
         self.icons = self.make_icons()
         self.button_glow = self.make_button_glow()
         self.buttons = self.build_buttons()
@@ -1812,7 +1812,7 @@ class HilalApp:
         pygame.draw.circle(self.screen, lerp_color((10, 14, 30), led_col, 0.35),
                            (lx, ly), 7)
         pygame.draw.circle(self.screen, led_col, (lx, ly), 5)
-        led = self.font_tiny.render("HILAL", True, led_col)
+        led = self.font_tiny.render("MOON", True, led_col)
         self.screen.blit(led, (lx + 14, ly - led.get_height() // 2))
 
         mouse = pygame.mouse.get_pos()
@@ -1878,7 +1878,7 @@ class HilalApp:
         pygame.draw.rect(box, C_CYAN, (0, 0, w, h), 2, border_radius=12)
         pad = 26
         ty = pad
-        title = self.font_title.render("Hilal Watch", True, C_CYAN)
+        title = self.font_title.render("Moon Watch", True, C_CYAN)
         box.blit(title, (pad, ty))
         ty += 38
         sub = self.font_small.render("A Moon Sighting System for Ramadan & Eid", True, C_AMBER)
