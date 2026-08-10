@@ -248,7 +248,7 @@ is bundled at `data/Final.csv`.
 ## Tests
 
 ```
-python -m pytest hilal_sighting/tests
+python -m pytest tests
 ```
 
 Runs headless (no window needed). The suite covers the astronomy against known,

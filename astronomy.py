@@ -35,7 +35,7 @@ import sys
 import datetime as _dt
 from datetime import datetime, timedelta
 
-LIB_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LIB_DIR = os.path.dirname(os.path.abspath(__file__))
 if LIB_DIR not in sys.path:
     sys.path.insert(0, LIB_DIR)
 VENDOR = os.path.join(LIB_DIR, "vendor")

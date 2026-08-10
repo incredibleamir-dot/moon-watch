@@ -5,7 +5,7 @@ os.environ["SDL_AUDIODRIVER"] = "dummy"
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _HILAL = os.path.dirname(os.path.dirname(_HERE))
 sys.path.insert(0, _HILAL)
-_VENDOR = os.path.join(os.path.dirname(_HILAL), "vendor")
+_VENDOR = os.path.join(_HILAL, "vendor")
 if os.path.isdir(_VENDOR) and _VENDOR not in sys.path:
     sys.path.insert(0, _VENDOR)
 
