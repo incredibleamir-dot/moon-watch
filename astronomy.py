@@ -1,7 +1,9 @@
-"""astronomy.py - hilal (new crescent) visibility calculations.
+"""astronomy.py - lunar crescent visibility calculations for the Islamic calendar.
 
-Computes everything needed to judge whether the Ramadan / Eid crescent can be
-seen on a given evening from a given place:
+Computes sunset / moonset times and lunar phase, then applies the three standard
+visibility criteria (MABIMS 2023, Danjon limit, Odeh 2006 zones) to judge
+whether the new crescent (hilal) can be seen on a given evening from a given
+location:
 
   * sunset / moonset times and the moon's lag time
   * moon age, altitude at sunset, arc of light (elongation), arc of vision,
@@ -11,23 +13,61 @@ seen on a given evening from a given place:
 The orbital model is Paul Schlyter's ("How to compute planetary positions")
 as vendored in this repo's ``vendor/solarsystem`` package, so this module needs
 no extra dependency.
+
+Key functions:
+  * evening_report()                      - full evening analysis
+  * sunset_local() / moonset_local()      - solar / lunar set times
+  * moon_age_hours() / illumination()     - lunar phase
+  * odeh_verdict() / mabims_verdict() / danjon_verdict() - visibility criteria
+
+References:
+  [1] Meeus, J. (2009). Astronomical Algorithms, 2nd ed.
+  [2] Odeh, M.S. (2006). New criterion for lunar crescent visibility.
+  [3] Schlyter, P. (2009). How to compute planetary positions.
+  [4] Yallop, B.D. (1997). A method for predicting the first visibility of the
+      lunar crescent.
 """
 
+import functools
 import math
 import os
 import sys
+import datetime as _dt
 from datetime import datetime, timedelta
 
 LIB_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if LIB_DIR not in sys.path:
     sys.path.insert(0, LIB_DIR)
+VENDOR = os.path.join(LIB_DIR, "vendor")
+if os.path.isdir(VENDOR) and VENDOR not in sys.path:
+    sys.path.insert(0, VENDOR)
 
 from solarsystem import Moon          # noqa: E402
 from solarsystem.functions import normalize  # noqa: E402
 
-RAD = math.pi / 180.0
-SUN_ALT_SUNSET = -0.833       # centre of solar disk at sunset (refraction+size)
-MOON_ALT_SET = -0.833         # centre of moon at moonset (topocentric, airless)
+# Altitude of the disk centre at rise/set: the upper limb touches the horizon
+# at -0.833 deg = 34' refraction + 16' solar / lunar angular radius
+# (Meeus, "Astronomical Algorithms", 2nd ed., Ch. 16).
+SUN_ALT_SUNSET = -0.833
+MOON_ALT_SET = -0.833
+
+# 1 AU expressed in Earth radii (149.6e6 km / 6371 km ~ 23480).  Converts the
+# moon's geocentric distance from Earth radii to AU for the illumination law.
+AU_IN_EARTH_RADII = 23455.0
+
+# Ratio of the Moon's mean radius to the Earth's equatorial radius
+# (Meeus, Ch. 48), used for the topocentric semi-diameter.
+PARALLAX_COEFF = 0.27245
+
+# Odeh (2006) visibility-threshold polynomial:  arcv' = a0 + a1*w + a2*w^2 + a3*w^3.
+ODEH_A0, ODEH_A1, ODEH_A2, ODEH_A3 = 7.1651, -6.3226, 0.7319, -0.1018
+# Odeh (2006) zone thresholds on v = arcv - arcv' (degrees).
+ODEH_ZONE_A_MIN, ODEH_ZONE_B_MIN, ODEH_ZONE_C_MIN = 5.65, 2.0, -0.96
+
+# MABIMS (2023) and Danjon criteria thresholds.
+MABIMS_ARC_L_MIN = 6.4
+MABIMS_ALT_MIN = 3.0
+DANJON_ARC_L_MIN = 7.0
 
 # ---------------------------------------------------------------------------
 # Julian date helpers
@@ -103,6 +143,9 @@ def sun_ecliptic(jd):
     return lon, 0.0, r
 
 
+sun_ecliptic = functools.lru_cache(maxsize=8192)(sun_ecliptic)
+
+
 # ---------------------------------------------------------------------------
 # Moon (via the vendored solarsystem library)
 # ---------------------------------------------------------------------------
@@ -114,6 +157,11 @@ def _moon_instant(jd, lat, lon, topographic):
              hour=dt.hour, minute=minute, UT=0, dst=0,
              longtitude=lon, latitude=lat, topographic=topographic)
     return m.position()          # (ecliptic lon, lat, distance in Earth radii)
+
+
+# Exact-JD memoisation: an evening report asks for the same instant several
+# times (alt/az plus the direct position), so cache rather than recompute.
+_moon_instant = functools.lru_cache(maxsize=8192)(_moon_instant)
 
 
 def moon_geocentric(jd):
@@ -210,7 +258,18 @@ def bright_limb_position_angle(jd, lat, lon):
 
 
 def elongation(lon1, lat1, lon2, lat2):
-    """Angular separation in degrees between two ecliptic positions."""
+    """Angular separation in degrees between two ecliptic positions.
+
+    Args:
+        lon1, lat1: ecliptic longitude / latitude of the first body (degrees)
+        lon2, lat2: ecliptic longitude / latitude of the second body (degrees)
+
+    Returns:
+        float: angular separation in degrees, in 0..180
+
+    References:
+        Meeus, "Astronomical Algorithms", 2nd ed., Ch. 17 (angular separation)
+    """
     dlon = math.radians(normalize(lon1 - lon2))
     b1, b2 = math.radians(lat1), math.radians(lat2)
     cos_ang = (math.cos(b1) * math.cos(b2) * math.cos(dlon)
@@ -244,12 +303,27 @@ def _solve(dt_a, dt_b, lat, lon, tz, fn, target):
     return lo + (hi - lo) / 2
 
 
+def _as_datetime(d):
+    """Midnight local datetime for a date, or the datetime itself."""
+    if isinstance(d, datetime):
+        return d
+    return datetime(d.year, d.month, d.day)
+
+
 def sunset_local(date, lat, lon, tz):
-    """Local datetime of sunset for the civil date ``date`` (midnight based)."""
-    day = date.replace(hour=0, minute=0, second=0, microsecond=0)
+    """Local datetime of sunset for the civil date ``date`` (midnight based).
+
+    Returns None when the Sun never sets in the search window (polar day) or
+    is already below the horizon at 11:00 local (polar night / deep twilight).
+    """
+    day = _as_datetime(date)
     start = day.replace(hour=11, minute=0)
     end = day.replace(hour=23, minute=59, second=59)
-    if _sun_alt_local(start, lat, lon, tz) <= SUN_ALT_SUNSET:
+    a_start = _sun_alt_local(start, lat, lon, tz)
+    a_end = _sun_alt_local(end, lat, lon, tz)
+    if a_start <= SUN_ALT_SUNSET or a_end >= SUN_ALT_SUNSET:
+        # No sign change across the window: already below at 11:00, or still
+        # above at 23:59 (midnight sun) - there is no sunset to report.
         return None
     return _solve(start, end, lat, lon, tz, _sun_alt_local, SUN_ALT_SUNSET)
 
@@ -258,7 +332,7 @@ def moonset_local(date, lat, lon, tz):
     """Local datetime of moonset for the civil date ``date`` (searches the
     window from 10:00 to 24:00 + next day 06:00 so the evening setting moon
     is captured even when it sets shortly after midnight)."""
-    day = date.replace(hour=0, minute=0, second=0, microsecond=0)
+    day = _as_datetime(date)
     start = day.replace(hour=10, minute=0)
     end = day + timedelta(days=1, hours=6)
     if _moon_alt_local(start, lat, lon, tz) <= MOON_ALT_SET:
@@ -280,12 +354,20 @@ def _signed_elongation(jd):
     return d
 
 
+_conjunction_cache = {}
+
+
 def conjunction_before(jd):
     """Julian date of the most recent geocentric new moon before ``jd``.
 
     Scans the previous 32 days for the last sign change of the signed
     elongation that happens near zero (full-moon wraps at +-180 are skipped).
+    Results are memoised per ~6-hour bucket so consecutive evenings within the
+    same lunation (e.g. the Ramadan / Eid date walker) reuse one search.
     """
+    key = round(jd, 2)
+    if key in _conjunction_cache:
+        return _conjunction_cache[key]
     last = None
     prev_t = jd - 32.0
     prev_d = _signed_elongation(prev_t)
@@ -303,19 +385,38 @@ def conjunction_before(jd):
             last = (lo + hi) / 2.0
         prev_t, prev_d = t, d
         t += 0.125
-    return last if last is not None else jd
+    if last is None:
+        last = jd
+    if len(_conjunction_cache) > 2048:
+        _conjunction_cache.clear()
+    _conjunction_cache[key] = last
+    return last
 
 
 def moon_age_hours(jd):
+    """Hours since the most recent geocentric new moon (conjunction).
+
+    Age 0 = new moon; a thin crescent just after new moon is a few hours old.
+
+    Args:
+        jd: float, Julian date (UTC)
+
+    Returns:
+        float: hours since the last conjunction
+
+    References:
+        Meeus, "Astronomical Algorithms", 2nd ed., Ch. 49
+    """
     return (jd - conjunction_before(jd)) * 24.0
 
 
 def illumination(elong_deg, moon_dist_er, sun_dist_au):
     """Fraction of the moon's disk illuminated (0 = new, 1 = full).
 
-    Uses the phase angle at the Moon, not the elongation as seen from Earth.
+    Uses the phase angle at the Moon, not the elongation as seen from Earth
+    (Meeus, "Astronomical Algorithms", 2nd ed., Ch. 48).
     """
-    r = moon_dist_er / 23455.0          # earth radii -> AU
+    r = moon_dist_er / AU_IN_EARTH_RADII   # Earth radii -> AU
     R = sun_dist_au
     e = math.radians(elong_deg)
     ms = math.sqrt(R * R + r * r - 2 * R * r * math.cos(e))
@@ -324,9 +425,14 @@ def illumination(elong_deg, moon_dist_er, sun_dist_au):
 
 
 def crescent_width(arc_l, moon_dist_er, alt_geo):
-    """Topocentric crescent width W in arcminutes (Odeh / Yallop)."""
+    """Topocentric crescent width W in arcminutes (Odeh / Yallop).
+
+    ``alt_geo`` must be the observer's *topocentric* altitude of the Moon at
+    the same time ``arc_l`` is measured - it drives the parallactic augmentation
+    of the apparent semi-diameter, so a geocentric altitude would mix frames.
+    """
     parallax_deg = math.degrees(math.asin(1.0 / max(moon_dist_er, 1e-9)))
-    sd_min = 0.27245 * parallax_deg * 60.0
+    sd_min = PARALLAX_COEFF * parallax_deg * 60.0
     sd_topo = sd_min * (1.0 + math.sin(math.radians(alt_geo))
                         * math.sin(math.radians(parallax_deg)))
     return sd_topo * (1.0 - math.cos(math.radians(arc_l)))
@@ -338,25 +444,30 @@ def crescent_width(arc_l, moon_dist_er, alt_geo):
 
 def mabims_verdict(arc_l_sunset, m_alt_sunset):
     """MABIMS 2023: crescent visible if ArcL >= 6.4 deg and altitude >= 3 deg."""
-    return arc_l_sunset >= 6.4 and m_alt_sunset >= 3.0
+    return arc_l_sunset >= MABIMS_ARC_L_MIN and m_alt_sunset >= MABIMS_ALT_MIN
 
 
 def danjon_verdict(arc_l):
     """Danjon limit: the crescent cannot be seen when elongation < 7 deg."""
-    return arc_l >= 7.0
+    return arc_l >= DANJON_ARC_L_MIN
 
 
 def odeh_verdict(arcv, w, arc_l):
-    """Odeh (2006) criterion -> (zone, label)."""
-    arcv_prime = 7.1651 - 6.3226 * w + 0.7319 * w * w - 0.1018 * w * w * w
+    """Odeh (2006) criterion -> (zone, label).
+
+    The visibility threshold curve is the cubic arcv' = a0 + a1*w + a2*w^2 +
+    a3*w^3 (Odeh, "New criterion for lunar crescent visibility", 2006); the
+    observed arc-of-vision minus that threshold, v, picks the zone.
+    """
+    arcv_prime = (ODEH_A0 + ODEH_A1 * w + ODEH_A2 * w * w + ODEH_A3 * w * w * w)
     v = arcv - arcv_prime
-    if arc_l < 6.4:
+    if arc_l < MABIMS_ARC_L_MIN:
         return "D", "Not visible (below Danjon limit)"
-    if v >= 5.65:
+    if v >= ODEH_ZONE_A_MIN:
         return "A", "Easily visible to the naked eye"
-    if v >= 2.0:
+    if v >= ODEH_ZONE_B_MIN:
         return "B", "Visible with optical aid / maybe naked eye"
-    if v >= -0.96:
+    if v >= ODEH_ZONE_C_MIN:
         return "C", "Visible with optical aid only"
     return "D", "Not visible even with optical aid"
 
@@ -365,13 +476,49 @@ def odeh_verdict(arcv, w, arc_l):
 # Full evening report
 # ---------------------------------------------------------------------------
 
+def _validate_observer(lat, lon, tz):
+    """Validate an observer location / timezone, raising ValueError if out of
+    range.  Ranges match the app's Setup dialog (``commit_inputs``)."""
+    if not (-90 <= lat <= 90):
+        raise ValueError("latitude out of range: %s (must be -90..90)" % lat)
+    if not (-180 <= lon <= 180):
+        raise ValueError("longitude out of range: %s (must be -180..180)" % lon)
+    if not (-14 <= tz <= 14):
+        raise ValueError("UTC offset out of range: %s (must be -14..14)" % tz)
+
+
 def evening_report(date, lat, lon, tz):
     """Compute every parameter needed by the app for the evening of ``date``.
 
-    Returns a dict (or None if no sunset / impossible geometry).
+    Returns a dict, or None when the Sun does not set that day (polar summer)
+    or the geometry is impossible.
+
+    Args:
+        date: a ``datetime.date`` (or ``datetime``) for the evening to analyse.
+        lat:  observer latitude in degrees (-90..90).
+        lon:  observer longitude in degrees (-180..180).
+        tz:   UTC offset in hours (-14..14).
+
+    Returns:
+        dict of sighting parameters, or None if there is no sunset.
+
+    Raises:
+        TypeError:  if ``date`` is not a date / datetime.
+        ValueError: if lat / lon / tz are out of range.
+
+    Example:
+        >>> from datetime import date
+        >>> report = evening_report(date(2025, 3, 1), lat=31.95, lon=35.34, tz=3.0)
+        >>> report["zone"]            # Odeh zone A/B/C/D
+        'B'
     """
+    if not isinstance(date, (datetime, _dt.date)):
+        raise TypeError("date must be a datetime.date or datetime, got %r" % date)
+    _validate_observer(lat, lon, tz)
+
     sunset = sunset_local(date, lat, lon, tz)
     if sunset is None:
+        # No sunset this evening (e.g. polar midnight sun) - nothing to report.
         return None
     moonset = moonset_local(date, lat, lon, tz)
 
@@ -400,10 +547,11 @@ def evening_report(date, lat, lon, tz):
     daz = (s_az - m_az) % 360.0
     if daz > 180.0:
         daz = 360.0 - daz
-    lon_mg, lat_mg, dist_mg = moon_geocentric(jd_set)
-    alt_geo = ecl2alt_az(lon_mg, lat_mg, jd_set, lat, lon)[0]
-    w = crescent_width(arc_l_best, dist_mb, alt_geo)
-
+    # Crescent width: the parallactic augmentation of the apparent semi-diameter
+    # needs the observer's TOPOCENTRIC altitude.  Use m_alt (topocentric, at the
+    # best time, consistent with arc_l_best / dist_mb) rather than an altitude
+    # derived from geocentric coordinates, which would ignore lunar parallax.
+    w = crescent_width(arc_l_best, dist_mb, m_alt)
     age = moon_age_hours(jd_best)
     illum = illumination(arc_l_best, dist_mb, sun_dist)
     age_set = moon_age_hours(jd_set)

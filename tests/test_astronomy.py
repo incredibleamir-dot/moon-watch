@@ -43,9 +43,10 @@ class TestEveningReport:
             assert 0.0 <= r["illum"] <= 1.0
             assert 0.0 <= r["arc_l_sunset"] <= 180.0
 
-    def test_moonset_none_during_polar_night(self):
-        r = report(date=datetime.datetime(2024, 6, 21), lat=78.0, lon=15.0,
-                   tz=1.0)
+    def test_moonset_none_when_moon_already_set(self):
+        # 2025-01-04 Ludhiana: the Sun sets at ~17:38 but the Moon is below the
+        # horizon through the moonset search window -> no moonset, no lag.
+        r = report(date=datetime.datetime(2025, 1, 4))
         assert r is not None
         assert r["moonset"] is None
         assert r["lag"] is None
