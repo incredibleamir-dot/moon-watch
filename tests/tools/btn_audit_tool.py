@@ -3,15 +3,15 @@ import sys
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 os.environ["SDL_AUDIODRIVER"] = "dummy"
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_HILAL = os.path.dirname(os.path.dirname(_HERE))
-sys.path.insert(0, _HILAL)
-_VENDOR = os.path.join(_HILAL, "vendor")
+_ROOT = os.path.dirname(os.path.dirname(_HERE))
+sys.path.insert(0, _ROOT)
+_VENDOR = os.path.join(_ROOT, "vendor")
 if os.path.isdir(_VENDOR) and _VENDOR not in sys.path:
     sys.path.insert(0, _VENDOR)
 
 import datetime
 import pygame
-import hilal_sighting as H
+import crescent_sighting as H
 
 BLITS = []  # (dest_id, dest_size, local_rect, src_size)
 
@@ -45,7 +45,7 @@ class Tracked(pygame.Surface):
 
 H.pygame.Surface = Tracked
 
-app = H.HilalApp()
+app = H.CrescentApp()
 app.screen = Tracked((H.W, H.H))
 app.date = datetime.datetime(2024, 4, 9)
 app.lat, app.lon, app.tz = 30.90, 75.85, 5.5

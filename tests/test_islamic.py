@@ -71,8 +71,8 @@ class TestDates:
 class TestAppCalendar:
     @pytest.fixture(scope="module")
     def app(self):
-        import hilal_sighting as H
-        a = H.HilalApp()
+        import crescent_sighting as H
+        a = H.CrescentApp()
         a.date = datetime.datetime(2025, 5, 1)
         a.lat, a.lon, a.tz = 21.4, 39.8, 3
         a.city = "Mecca, Saudi Arabia"

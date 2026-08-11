@@ -13,12 +13,12 @@ import datetime
 import pygame
 import pytest
 
-import hilal_sighting as H
+import crescent_sighting as H
 
 
 @pytest.fixture(scope="module")
 def app_fixture():
-    a = H.HilalApp()
+    a = H.CrescentApp()
     a.date = datetime.datetime(2024, 4, 9)
     a.lat, a.lon, a.tz = 30.90, 75.85, 5.5
     a.city = "Ludhiana, India"

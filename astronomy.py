@@ -2,7 +2,7 @@
 
 Computes sunset / moonset times and lunar phase, then applies the three standard
 visibility criteria (MABIMS 2023, Danjon limit, Odeh 2006 zones) to judge
-whether the new crescent (hilal) can be seen on a given evening from a given
+whether the new crescent can be seen on a given evening from a given
 location:
 
   * sunset / moonset times and the moon's lag time

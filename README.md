@@ -1,12 +1,12 @@
 # Moon Watch - Ramadan / Eid new-crescent viewer
 
-A pygame desktop app for predicting whether the new (hilal) crescent of Ramadan /
+A pygame desktop app for predicting whether the new crescent of Ramadan /
 Eid can be seen on a given evening from a given location. The look matches the
 neon HUD style of the parent [`tiny-solarsystem`](https://github.com/incredibleamir-dot/tiny-solarsystem)
 project: dark futuristic panels, glowing borders, scanlines and a taskbar.
 
 ```
-python hilal_sighting.py
+python crescent_sighting.py
 ```
 
 Needs `pygame`, `numpy` and `pandas` (install once with `pip install -r
@@ -71,7 +71,7 @@ below.
 
 ```
 pip install -r requirements.txt
-python hilal_sighting.py
+python crescent_sighting.py
 ```
 
 * The app uses `pygame` (UI) and `numpy` / `pandas` (analysis charts) from PyPI
@@ -114,7 +114,7 @@ date with the steppers and to pick a location:
 
 1. **Start it** from the repo folder:
    ```
-   python hilal_sighting.py
+   python crescent_sighting.py
    ```
 2. **Pick your place and evening** - open **Setup** (the gear button on the
    taskbar at the bottom). Choose a city preset or type a custom latitude /
@@ -159,7 +159,7 @@ crescent clears the horizon and becomes worth looking for.
 
 **Right - the verdict panel**:
 
-* The big banner: **HILAL VISIBLE** (green), **BORDERLINE** (amber) or
+* The big banner: **CRESCENT VISIBLE** (green), **BORDERLINE** (amber) or
   **NOT VISIBLE** (red); **NO SUNSET** if the Sun doesn't set that day.
 * The numbers table, read from top to bottom:
   * **Sunset / Moonset** - local clock times.
@@ -182,7 +182,7 @@ crescent clears the horizon and becomes worth looking for.
     * **B** - visible with optical aid / maybe naked eye
     * **C** - visible with optical aid only
     * **D** - not visible
-* The verdict combines these: zone A or B -> **HILAL VISIBLE**; zone C or a
+* The verdict combines these: zone A or B -> **CRESCENT VISIBLE**; zone C or a
   MABIMS/Danjon pass -> **BORDERLINE**; otherwise **NOT VISIBLE**.
 * **IN PLAIN WORDS** - the same conclusion written as a normal sentence
   ("The moon is 19h old and 0.8% lit - a thin crescent..."), for when you don't
