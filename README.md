@@ -6,9 +6,6 @@ matches the neon HUD style of the parent
 [`tiny-solarsystem`](https://github.com/incredibleamir-dot/tiny-solarsystem)
 project: dark futuristic panels, glowing borders, scanlines and a taskbar.
 
-This is the **2D desktop app** (the companion piece is the
-[`moon-watch-3d`](../moon-watch-3d) repo, a live 3D Sun-Earth-Moon view).
-
 ```
 python crescent_sighting.py
 ```
