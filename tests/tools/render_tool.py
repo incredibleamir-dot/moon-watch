@@ -22,7 +22,7 @@ app.refresh(force=True)
 out = os.path.join(_ROOT, "screenshots")
 os.makedirs(out, exist_ok=True)
 
-views = ["sight", "cond", "equa", "thres", "verify"]
+views = ["sight", "cond", "equa", "thres", "verify", "live"]
 for v in views:
     app.view = v
     app.invalidate_analysis()

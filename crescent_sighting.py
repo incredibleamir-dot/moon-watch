@@ -18,6 +18,7 @@ library); database analysis comes from ``analysis.py`` (adapted from HilalPy).
 import math
 import os
 import random
+import time
 import sys
 import datetime
 import threading
@@ -105,6 +106,7 @@ VIEWS = {
     "equa": ("EQUATION", "Boundary curve test"),
     "thres": ("THRESHOLD", "Minimum observed values"),
     "verify": ("VERIFY", "Check our math"),
+    "live": ("LIVE", "Sun-Earth-Moon now"),
 }
 
 ANALYSIS_X_CHOICES = ["ArcL", "MAlt", "ArcV", "W", "LT", "MA"]
@@ -174,6 +176,15 @@ def _icon_crescent(surf, s):
                        int(0.30 * s), 0)
     pygame.draw.circle(surf, (10, 14, 34), (int(0.64 * s), int(0.44 * s)),
                        int(0.26 * s), 0)
+
+
+def _icon_live(surf, s):
+    c = (int(0.5 * s), int(0.5 * s))
+    pygame.draw.circle(surf, ICON_COLOR, c, int(0.20 * s), int(0.07 * s))
+    pygame.draw.circle(surf, ICON_COLOR, c, int(0.41 * s), int(0.05 * s))
+    mx = int(c[0] + math.cos(math.radians(-35)) * 0.41 * s)
+    my = int(c[1] + math.sin(math.radians(-35)) * 0.41 * s)
+    pygame.draw.circle(surf, ICON_COLOR, (mx, my), int(0.09 * s), 0)
 
 
 def _icon_scatter(surf, s):
@@ -352,6 +363,9 @@ class CrescentApp:
             "hz_state": "idle", "hz": None, "hz_error": None,
             "obs_state": "idle", "obs": None, "obs_error": None,
         }
+        self.live = None
+        self.live_ts = 0.0
+        self.tex = self.load_textures()
         self.build_inputs()
         self.refresh()
 
@@ -470,6 +484,7 @@ class CrescentApp:
             "setup": mk(_icon_gear), "sight": mk(_icon_crescent),
             "cond": mk(_icon_scatter), "equa": mk(_icon_curve),
             "thres": mk(_icon_box),             "verify": mk(_icon_check),
+            "live": mk(_icon_live),
             "about": mk(_icon_about),
             "calendar": mk(_icon_calendar),
             "fullscreen": mk(_icon_fullscreen), "fit": mk(_icon_fit),
@@ -502,6 +517,7 @@ class CrescentApp:
             ("equa", "equa", "Equation analysis"),
             ("thres", "thres", "Threshold analysis"),
             ("verify", "verify", "Verify our math (NASA + records)"),
+            ("live", "live", "Live Sun-Earth-Moon view"),
             ("dates", "calendar", "Ramadan & Eid dates"),
             ("about", "about", "About"),
             ("fullscreen", "fullscreen", "Fullscreen (F11)"),
@@ -557,7 +573,7 @@ class CrescentApp:
             self.show_about = False
             self.show_dates = False
             self.build_inputs()
-        elif bid in ("sight", "cond", "equa", "thres", "verify"):
+        elif bid in ("sight", "cond", "equa", "thres", "verify", "live"):
             self.view = bid
             self.show_setup = False
             self.show_about = False
@@ -656,6 +672,8 @@ class CrescentApp:
                             self.activate("thres")
                         elif event.key in (pygame.K_5, pygame.K_v):
                             self.activate("verify")
+                        elif event.key in (pygame.K_6, pygame.K_l):
+                            self.activate("live")
                         elif event.key == pygame.K_x and self.view == "thres":
                             self.analysis_x = ANALYSIS_X_CHOICES[
                                 (ANALYSIS_X_CHOICES.index(self.analysis_x) + 1)
@@ -677,6 +695,11 @@ class CrescentApp:
                         self.pressed_btn = None
 
             self.hover_btn = self.button_at(*pygame.mouse.get_pos())
+
+            if self.view == "live" and (self.live is None
+                                        or time.time() - self.live_ts >= 5.0):
+                self.live = self.compute_live()
+                self.live_ts = time.time()
 
             want = pygame.SYSTEM_CURSOR_ARROW
             if self.hover_btn or self.pressed_btn:
@@ -717,6 +740,8 @@ class CrescentApp:
             self.draw_sight_canvas()
         elif self.view == "verify":
             self.draw_verify_canvas()
+        elif self.view == "live":
+            self.draw_live_canvas()
         else:
             self.draw_analysis_canvas()
         self.draw_panel()
@@ -912,6 +937,131 @@ class CrescentApp:
         self.screen.blit(img, (plot.x, plot.bottom + 20))
 
     # ------------------------------------------------------------- analysis
+    # ===================================================================
+    # Live view
+    # ===================================================================
+    def draw_live_canvas(self):
+        if self.live is None:
+            self.live = self.compute_live()
+            self.live_ts = time.time()
+        d = self.live
+        rect = pygame.Rect(20, SKY_TOP, VIEW_W - 40, CANVAS_H - SKY_TOP - 16)
+        box = pygame.Surface(rect.size, pygame.SRCALPHA)
+        box.fill((6, 10, 28, 210))
+        pygame.draw.rect(box, C_CYAN_DIM, box.get_rect(), 1, border_radius=14)
+
+        title = self.cached("live", self.font_section, "LIVE SUN - EARTH - MOON",
+                            C_CYAN)
+        box.blit(title, (14, 10))
+        now = datetime.datetime.now()
+        clock = self.font_big.render(
+            "%02d:%02d:%02d" % (now.hour, now.minute, now.second), True, C_GREEN)
+        box.blit(clock, (rect.width - 14 - clock.get_width(), 8))
+        sub = self.cached("live", self.font_tiny,
+                          "refreshing every 5 s - positions for right now", C_DIM)
+        box.blit(sub, (14, 34))
+
+        cx = rect.width // 2
+        cy = rect.height // 2 + 16
+        R_orbit = min(rect.width, rect.height) * 0.30
+        Re = 54
+
+        pygame.draw.circle(box, ORBIT_COLOR, (cx, cy), int(R_orbit), 1)
+
+        arc_rect = pygame.Rect(cx - R_orbit, cy - R_orbit, 2 * R_orbit, 2 * R_orbit)
+        overlay = pygame.Surface(rect.size, pygame.SRCALPHA)
+        for k in range(72):
+            a = k * 5.0
+            lon_t = (d["lon_s"] + (a - 180.0)) % 360.0
+            alt = astronomy.ecl2alt_az(lon_t, d["lat_m"], d["jd"],
+                                       self.lat, self.lon)[0]
+            if alt > 0.0:
+                pygame.draw.arc(overlay, (90, 255, 150, 120), arc_rect,
+                                math.radians(a - 2.5), math.radians(a + 2.5), 16)
+        box.blit(overlay, (0, 0))
+
+        sx, sy = 66, cy
+        for rad, alpha in ((44, 22), (30, 40), (20, 70)):
+            g = pygame.Surface((rad * 2, rad * 2), pygame.SRCALPHA)
+            pygame.draw.circle(g, (255, 180, 70, alpha), (rad, rad), rad)
+            box.blit(g, (sx - rad, sy - rad))
+        if self.tex["sun"] is not None:
+            box.blit(self._render_sun(21), (sx - 21, sy - 21))
+        else:
+            pygame.draw.circle(box, SUN_COLOR, (sx, sy), 14)
+        sl = self.cached("live", self.font_tiny, "SUN", C_AMBER)
+        box.blit(sl, (sx - sl.get_width() // 2, sy + 22))
+
+        dj = d["jd"] - 2451545.0
+        gmst = (280.46061837 + 360.98564736629 * dj) % 360.0
+        ra_s, _ = astronomy.sun_radec(d["jd"])
+        lam_sub = (ra_s - gmst) % 360.0
+
+        if self.tex["earth"] is not None:
+            glob = self._render_earth_globe(Re, lam_sub)
+            box.blit(glob, (cx - Re, cy - Re))
+        else:
+            earth = pygame.Surface((2 * Re + 6, 2 * Re + 6), pygame.SRCALPHA)
+            ec = Re + 3
+            pygame.draw.circle(earth, (34, 54, 96), (ec, ec), Re)
+            pts = [(ec, ec)]
+            for i in range(-9, 10):
+                ang = math.radians(i * 10.0)
+                pts.append((ec + math.cos(ang) * Re, ec - math.sin(ang) * Re))
+            pts.append((ec, ec))
+            pygame.draw.polygon(earth, (11, 17, 38), pts)
+            pygame.draw.circle(earth, C_CYAN_DIM, (ec, ec), Re, 1)
+            box.blit(earth, (cx - ec, cy - ec))
+
+        r_o = Re * max(0.15, math.cos(math.radians(self.lat)))
+        a_obs = math.radians((lam_sub + 180.0 - self.lon) % 360.0)
+        ox = cx + r_o * math.cos(a_obs)
+        oy = cy - r_o * math.sin(a_obs)
+        pygame.draw.circle(box, C_AMBER, (int(ox), int(oy)), 5)
+        pygame.draw.circle(box, (255, 255, 255), (int(ox), int(oy)), 2)
+        lx = cx + math.cos(a_obs) * (Re + 16)
+        ly = cy - math.sin(a_obs) * (Re + 16)
+        city = self.city.split(",")[0]
+        lbl = self.cached("live", self.font_tiny, city, C_AMBER)
+        box.blit(lbl, (int(lx) - lbl.get_width() // 2, int(ly) - 6))
+
+        a_moon = (d["lon_m"] - d["lon_s"] + 180.0) % 360.0
+        mx = cx + math.cos(math.radians(a_moon)) * R_orbit
+        my = cy - math.sin(math.radians(a_moon)) * R_orbit
+        if self.tex["moon"] is not None:
+            light_deg = math.degrees(math.atan2(sy - my, sx - mx))
+            spr = self._render_moon_globe(24, d["illum"], light_deg)
+            box.blit(spr, (int(mx) - 24, int(my) - 24))
+        else:
+            self.draw_crescent(box, int(mx), int(my), 15, d["illum"], 180.0,
+                               MOON_LIT, MOON_DARK)
+        up = d["m_alt"] > 0.0
+        ring = C_GREEN if up else (120, 126, 140)
+        pygame.draw.circle(box, ring, (int(mx), int(my)), 27, 1)
+        ux = (mx - cx) / R_orbit
+        uy = (my - cy) / R_orbit
+        st = self.cached("live", self.font_tiny, "MOON UP" if up else "MOON DOWN",
+                         ring)
+        box.blit(st, (int(mx + ux * 34) - st.get_width() // 2, int(my + uy * 34) - 7))
+
+        info = self.cached("live", self.font_small,
+                           "%s  -  %.1f%% lit  -  %s old"
+                           % (d["phase"], d["illum"] * 100, self._fmt_age(d["age_h"])),
+                           C_TEXT)
+        box.blit(info, (cx - info.get_width() // 2, rect.height - 58))
+
+        lgy = rect.height - 26
+        pygame.draw.line(box, (90, 255, 150), (14, lgy), (34, lgy), 6)
+        pygame.draw.line(box, ORBIT_COLOR, (14, lgy + 10), (34, lgy + 10), 6)
+        lg1 = self.cached("live", self.font_tiny,
+                          "green = moon above your horizon here", C_DIM)
+        lg2 = self.cached("live", self.font_tiny,
+                          "blue = below horizon   (ring = moon orbit)", C_DIM)
+        box.blit(lg1, (40, lgy - 7))
+        box.blit(lg2, (40, lgy + 3))
+
+        self.screen.blit(box, (rect.x, rect.y))
+
     def draw_analysis_canvas(self):
         res = self.analysis_result(self.view)
         key = self.view
@@ -1252,6 +1402,8 @@ class CrescentApp:
             self._panel_sight(surf)
         elif self.view == "verify":
             self._panel_verify(surf)
+        elif self.view == "live":
+            self._panel_live(surf)
         else:
             self._panel_analysis(surf, self.view)
 
@@ -1349,6 +1501,64 @@ class CrescentApp:
             surf.blit(it, (pad, y))
             y += 15
 
+    def _panel_live(self, surf):
+        pad = 24
+        y = 92
+        d = self.live or self.compute_live()
+        if self.live is None:
+            self.live = d
+            self.live_ts = time.time()
+        now = datetime.datetime.now()
+        clock = self.font_section.render(
+            "%02d:%02d:%02d" % (now.hour, now.minute, now.second), True, C_GREEN)
+        surf.blit(clock, (pad, y))
+        y += 26
+        st = self.cached("panel", self.font_tiny, "local time (updates every 5 s)",
+                         C_DIM)
+        surf.blit(st, (pad, y))
+        y += 24
+        surf.blit(self.divider, (pad, y))
+        y += 14
+
+        up = d["m_alt"] > 0.0
+        rows = [
+            ("Sun alt", "%.1f°  az %.1f°" % (d["s_alt"], d["s_az"])),
+            ("Moon alt", "%.1f°  az %.1f°" % (d["m_alt"], d["m_az"])),
+            ("Moon now", "UP" if up else "BELOW horizon"),
+            ("Phase", d["phase"]),
+            ("Moon age", self._fmt_age(d["age_h"])),
+            ("Illumination", "%.1f %%" % (d["illum"] * 100)),
+            ("Moonrise", fmt_time(d["moonrise"])),
+            ("Moonset", fmt_time(d["moonset"])),
+        ]
+        for label, value in rows:
+            lbl = self.cached("panel", self.font_tiny, label, C_CYAN_DIM)
+            val = self.cached("panel", self.font_small, value, C_TEXT)
+            surf.blit(lbl, (pad, y))
+            surf.blit(val, (pad + 118, y))
+            y += 22
+        y += 8
+        surf.blit(self.divider, (pad, y))
+        y += 16
+
+        head = self.cached("panel", self.font_small, "TONIGHT'S SUNSET VERDICT",
+                           C_CYAN)
+        surf.blit(head, (pad, y))
+        y += 26
+        if self.report is None:
+            msg = self.cached("panel", self.font_body, "No sunset today here.",
+                              C_AMBER)
+            surf.blit(msg, (pad, y))
+            return
+        verdict, vcol = self._verdict()
+        banner = self.neon(verdict, self.font_big, vcol)
+        surf.blit(banner, (pad - 4, y))
+        y += banner.get_height() + 4
+        zl = self.cached("panel", self.font_small,
+                         "Odeh zone %s - %s" % (self.report["zone"],
+                                                self.report["zone_label"]), vcol)
+        surf.blit(zl, (pad, y))
+
     def _verdict(self):
         if self.report is None:
             return "NO SUNSET", C_AMBER
@@ -1421,6 +1631,150 @@ class CrescentApp:
         if days:
             return "%dd" % days
         return "%.1fh" % hours
+
+    def _phase_name(self, e):
+        """Eight-phase name from the signed sun-moon elongation (-180..180)."""
+        a = abs(e)
+        if a < 10.0:
+            return "New Moon"
+        if a > 170.0:
+            return "Full Moon"
+        if abs(a - 90.0) < 8.0:
+            return "First Quarter" if e > 0.0 else "Last Quarter"
+        if e > 0.0:
+            return "Waxing Crescent" if a < 90.0 else "Waxing Gibbous"
+        return "Waning Crescent" if a < 90.0 else "Waning Gibbous"
+
+    def compute_live(self):
+        """Positions of the Sun, Earth and Moon for *right now*.
+
+        Returns a dict of the current geocentric / topocentric values plus the
+        phase and today's moonrise / moonset, all for ``self.lat/lon/tz``.
+        """
+        now_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        jd = astronomy.jd_utc(now_utc)
+        lon_s, lat_s, sun_dist_au = astronomy.sun_ecliptic(jd)
+        lon_m, lat_m, dist_m_er = astronomy.moon_geocentric(jd)
+        elong = astronomy.elongation(lon_m, lat_m, lon_s, lat_s)
+        s_alt, s_az = astronomy.sun_alt_az(jd, self.lat, self.lon)
+        m_alt, m_az = astronomy.moon_alt_az(jd, self.lat, self.lon)
+        age_h = astronomy.moon_age_hours(jd)
+        illum = astronomy.illumination(elong, dist_m_er, sun_dist_au)
+        d = (lon_m - lon_s) % 360.0
+        if d > 180.0:
+            d -= 360.0
+        local = now_utc + datetime.timedelta(hours=self.tz)
+        rise = set_ = None
+        try:
+            moon = astronomy.Moon(year=local.year, month=local.month,
+                                  day=local.day, hour=0, minute=0, UT=self.tz,
+                                  dst=0, longtitude=self.lon, latitude=self.lat)
+            rise, set_ = moon.moonriseset()
+        except Exception:
+            pass
+        return {
+            "jd": jd, "now_utc": now_utc, "local": local,
+            "lon_s": lon_s, "lat_s": lat_s, "lon_m": lon_m, "lat_m": lat_m,
+            "elong": elong, "signed_e": d,
+            "s_alt": s_alt, "s_az": s_az, "m_alt": m_alt, "m_az": m_az,
+            "age_h": age_h, "illum": illum, "phase": self._phase_name(d),
+            "moonrise": rise, "moonset": set_,
+            "sun_dist_au": sun_dist_au, "dist_m_er": dist_m_er,
+        }
+
+    # -------------------------------------------------------- live textures
+    def load_textures(self):
+        """Load the bundled sun / earth / moon textures (best effort)."""
+        def load(name, scale):
+            try:
+                surf = pygame.image.load(
+                    os.path.join(ROOT, "assets", name))
+                return pygame.transform.smoothscale(surf, scale)
+            except Exception:
+                return None
+        return {
+            "sun": load("sun.jpg", (256, 256)),
+            "earth": load("earth.jpg", (2048, 1024)),
+            "moon": load("moon.jpg", (512, 256)),
+        }
+
+    @staticmethod
+    def _texel(tex, fx, fy):
+        w, h = tex.get_size()
+        return tex.get_at((int(fx * w) % w, int(fy * h) % h))[:3]
+
+    @staticmethod
+    def _shade(col, f):
+        return (int(col[0] * f), int(col[1] * f), int(col[2] * f))
+
+    def _render_sun(self, R):
+        """Solar-surface disk with a soft rim, cropped from the sun map."""
+        spr = pygame.Surface((2 * R + 1, 2 * R + 1), pygame.SRCALPHA)
+        scaled = pygame.transform.smoothscale(self.tex["sun"], (2 * R + 1, 2 * R + 1))
+        R2 = R * R
+        for dy in range(-R, R + 1):
+            for dx in range(-R, R + 1):
+                d2 = dx * dx + dy * dy
+                if d2 > R2:
+                    continue
+                a = 255
+                if d2 > (R - 1) * (R - 1):
+                    a = max(0, min(255, int(255 * (R - math.sqrt(d2)) / 1.5)))
+                c = scaled.get_at((R + dx, R + dy))
+                spr.set_at((R + dx, R + dy), (c[0], c[1], c[2], a))
+        return spr
+
+    def _render_earth_globe(self, R, lam_sub):
+        """Textured Earth as seen from the sun (sub-solar point rotated to front)."""
+        tex = self.tex["earth"]
+        spr = pygame.Surface((2 * R + 1, 2 * R + 1), pygame.SRCALPHA)
+        R2 = R * R
+        for dy in range(-R, R + 1):
+            for dx in range(-R, R + 1):
+                d2 = dx * dx + dy * dy
+                if d2 > R2:
+                    continue
+                r = math.sqrt(d2)
+                lat = 90.0 - math.degrees(math.asin(min(1.0, r / R)))
+                th = math.degrees(math.atan2(-dy, dx)) % 360.0
+                lon = (lam_sub + 180.0 - th) % 360.0
+                col = self._texel(tex, (lon + 180.0) / 360.0, 0.5 - lat / 180.0)
+                if not (90.0 <= th <= 270.0):
+                    col = self._shade(col, 0.16)
+                spr.set_at((R + dx, R + dy), col)
+        pygame.draw.circle(spr, C_CYAN_DIM, (R, R), R, 1)
+        return spr
+
+    def _render_moon_globe(self, R, k, rot_deg):
+        """Textured Moon with the lit fraction *k* shaded by the sun direction."""
+        tex = self.tex["moon"]
+        spr = pygame.Surface((2 * R + 1, 2 * R + 1), pygame.SRCALPHA)
+        R2 = R * R
+        if k >= 0.999:
+            full = True
+            si = ci = 0.0
+            ux = uy = 0.0
+        else:
+            full = False
+            i = math.acos(max(-1.0, min(1.0, 2.0 * k - 1.0)))
+            si, ci = math.sin(i), math.cos(i)
+            rot = math.radians(rot_deg)
+            ux, uy = math.cos(rot), math.sin(rot)
+        for dy in range(-R, R + 1):
+            for dx in range(-R, R + 1):
+                d2 = dx * dx + dy * dy
+                if d2 > R2:
+                    continue
+                w = math.sqrt(R2 - d2)
+                lon = math.atan2(dx / R, w / R)
+                lat = math.asin(max(-1.0, min(1.0, -dy / R)))
+                col = self._texel(tex, (lon / math.tau + 0.5) % 1.0,
+                                  0.5 - lat / math.pi)
+                if full or (dx * ux + dy * uy) * si + w * ci >= 0.0:
+                    spr.set_at((R + dx, R + dy), col)
+                else:
+                    spr.set_at((R + dx, R + dy), self._shade(col, 0.22))
+        return spr
 
     def _panel_analysis(self, surf, kind):
         res = self.analysis_result(kind)

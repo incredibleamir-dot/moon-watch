@@ -1,9 +1,13 @@
-# Moon Watch - Ramadan / Eid new-crescent viewer
+# Moon Sight - Ramadan / Eid new-crescent viewer
 
-A pygame desktop app for predicting whether the new crescent of Ramadan /
-Eid can be seen on a given evening from a given location. The look matches the
-neon HUD style of the parent [`tiny-solarsystem`](https://github.com/incredibleamir-dot/tiny-solarsystem)
+A standalone pygame desktop app for predicting whether the new crescent of
+Ramadan / Eid can be seen on a given evening from a given location. The look
+matches the neon HUD style of the parent
+[`tiny-solarsystem`](https://github.com/incredibleamir-dot/tiny-solarsystem)
 project: dark futuristic panels, glowing borders, scanlines and a taskbar.
+
+This is the **2D desktop app** (the companion piece is the
+[`moon-watch-3d`](../moon-watch-3d) repo, a live 3D Sun-Earth-Moon view).
 
 ```
 python crescent_sighting.py
@@ -48,6 +52,11 @@ below.
   that works out the previous and next **Ramadan**, **Eid ul-Fitr** and
   **Eid ul-Adha** for the chosen location and date, using the app's own
   local-crescent-visibility rule for each new month.
+* **Live view** - a real-time Sun-Earth-Moon diagram that refreshes every
+  5 seconds: the Moon's orbit around the Earth, the Moon's current position and
+  phase, a shaded arc of the orbit where the Moon is above the horizon at your
+  location *right now*, and day / night shading on the Earth with your location
+  marked on it.
 
 ## Screenshots
 
@@ -78,9 +87,8 @@ python crescent_sighting.py
   - they are **not** bundled, so a one-time `pip install -r requirements.txt`
   is needed.
 * The `solarsystem` astronomy library is vendored in the repo's
-  `vendor/solarsystem/` folder (also used by the parent
-  [`tiny-solarsystem`](https://github.com/incredibleamir-dot/tiny-solarsystem)
-  app) - it has no external dependencies, so nothing extra is needed for it.
+  `vendor/solarsystem/` folder - it has no external dependencies, so nothing
+  extra is needed for it.
 
 ## Controls
 
@@ -90,6 +98,7 @@ python crescent_sighting.py
 | T          | jump to today                  |
 | 1-4        | switch views                   |
 | 5 or V     | switch to the Verify view      |
+| 6 or L     | switch to the Live view        |
 | R          | (re)run the NASA HORIZONS check|
 | X          | cycle threshold parameter      |
 | D          | show/hide Ramadan & Eid dates  |
@@ -129,6 +138,7 @@ date with the steppers and to pick a location:
    | 3 | Equation | lag time vs arc of light against the visibility boundary curve |
    | 4 | Threshold | the minimum observed values for one parameter (cycle with **X**) |
    | 5 / V | Verify | check our math against NASA/JPL HORIZONS and real sightings |
+   | 6 / L | Live | the Sun-Earth-Moon system right now (updates every 5 s) |
 
 4. **Step through evenings** - use **Left** / **Right** to move day by day. The
    white ring on the analysis charts follows the evening you select, so you can
@@ -217,6 +227,28 @@ These compare the chosen evening against **8,000+ real recorded sightings**
 * Below that, the **real-sightings** box shows how often our verdict matched the
   recorded sightings, overall and per method (naked eye / optical aid).
 
+### Live view (6 / L)
+
+A top-down diagram of the Sun-Earth-Moon system, recomputed from your computer's
+clock every 5 seconds:
+
+* The **Sun** (left) and the **Moon's orbit ring** around the **Earth**.
+* The **green arc** of the orbit is where the Moon would be above the horizon at
+  your chosen location right now; the rest of the ring is below the horizon.
+  The **Moon** is drawn at its true position and phase - a thin crescent when
+  young, full when opposite the Sun - ringed green when it is actually up for
+  you, grey when it is below the horizon (even if the diagram can still "see"
+  it behind the Earth).
+* The **Earth** (textured, from real satellite imagery) is shaded day / night:
+  the dark side faces away from the Sun, and the **amber dot** marks your
+  location at its true latitude / longitude, so you can see whether you are on
+  the daylight or night side. The Sun and Moon use real photographic textures
+  too (see *Credits*). If a texture is missing the view falls back to the plain
+  vector drawing automatically.
+* The right panel shows the live clock, Sun / Moon altitude and azimuth, the
+  lunar phase, age and illumination, today's moonrise / moonset, and the
+  usual sunset-based crescent verdict.
+
 ### Ramadan & Eid dates dialog (calendar button / D)
 
 Opens a modal that lists the **previous and next** dates for **Ramadan**,
@@ -237,6 +269,21 @@ altitude through the atmospheric refraction horizon.
 
 Crescent width follows Odeh (2006); the bright-limb position angle drives the
 crescent orientation in the sky diagram.
+
+## Credits - Live view textures
+
+The textured Sun, Earth and Moon in the Live view use the free equirectangular
+maps from [Solar System Scope](https://www.solarsystemscope.com/textures/),
+licensed under the [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+attribution license and bundled in the repo's `assets/` folder (this repo keeps
+its own separate copy of the three textures):
+
+* `sun.jpg` - Solar System Scope 2k sun map.
+* `earth.jpg` - Solar System Scope 2k earth day map.
+* `moon.jpg` - Solar System Scope 2k moon map.
+
+If any file is missing the Live view automatically falls back to the plain
+vector drawing.
 
 ## HilalPy dataset
 
