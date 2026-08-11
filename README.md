@@ -6,6 +6,10 @@ matches the neon HUD style of the parent
 [`tiny-solarsystem`](https://github.com/incredibleamir-dot/tiny-solarsystem)
 project: dark futuristic panels, glowing borders, scanlines and a taskbar.
 
+This is the **2D desktop app** (the companion piece is the
+[`moon-watch-3d`](https://github.com/incredibleamir-dot/moon-watch-3d) repo,
+a live 3D Sun-Earth-Moon view).
+
 ```
 python crescent_sighting.py
 ```
@@ -257,37 +261,73 @@ your place, and the year is anchored to a well-known reference (1 Ramadan 1446 A
 = 1 March 2025). Because it uses the same physics as the rest of the app, the
 dates can legitimately differ from a fixed civil calendar.
 
-## Physics
+## Credits
 
-The orbital model is Paul Schlyter's ("How to compute planetary positions"),
-vendored as the `solarsystem` package in this repo's `vendor/` folder - no extra
-astronomy dependency. Sunsets / moonsets are solved by iterating the apparent
-altitude through the atmospheric refraction horizon.
+### Inspiration
 
-Crescent width follows Odeh (2006); the bright-limb position angle drives the
-crescent orientation in the sky diagram.
+This project grew out of
+[tiny-solarsystem](https://github.com/incredibleamir-dot/tiny-solarsystem),
+a kid-friendly solar system explorer built for a four-year-old's curiosity.
+The neon HUD style, dark futuristic panels and glowing borders all trace
+back to that first experiment.
 
-## Credits - Live view textures
+### Orbital calculations
+
+The orbital model is based on Paul Schlyter's
+*[How to compute planetary positions](https://stjarnhimlen.se/comp/ppcomp.html)*,
+vendored as the `solarsystem` package in this repo's `vendor/` folder. The
+library is by **Ioannis Nasios** and is used with permission under the
+**MIT license** (Copyright (c) 2020, Ioannis Nasios).
+
+> If you use the solarsystem library in published work, please cite:
+>
+> ```bibtex
+> @misc{nasios2026solarsystemvalidatedlightweightpython,
+>       title={Solarsystem: A Validated Lightweight Python Package for Planetary
+>              Positions and Solar-Lunar Event Calculations},
+>       author={Ioannis Nasios},
+>       year={2026},
+>       eprint={2606.27055},
+>       archivePrefix={arXiv},
+>       primaryClass={astro-ph.EP},
+>       url={https://arxiv.org/abs/2606.27055},
+> }
+> ```
+
+### Textures
 
 The textured Sun, Earth and Moon in the Live view use the free equirectangular
 maps from [Solar System Scope](https://www.solarsystemscope.com/textures/),
 licensed under the [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
-attribution license and bundled in the repo's `assets/` folder (this repo keeps
-its own separate copy of the three textures):
+attribution license and bundled in the repo's `assets/` folder:
 
-* `sun.jpg` - Solar System Scope 2k sun map.
-* `earth.jpg` - Solar System Scope 2k earth day map.
-* `moon.jpg` - Solar System Scope 2k moon map.
+* `assets/earth.jpg` - 2k earth day map
+* `assets/moon.jpg` - 2k moon map
+* `assets/sun.jpg` - 2k sun map
 
-If any file is missing the Live view automatically falls back to the plain
-vector drawing.
+### Visibility criteria
 
-## HilalPy dataset
+Crescent visibility logic follows:
+
+* **MABIMS 2023** - minimum arc of light 6.4 deg, minimum moon altitude 3.0 deg.
+* **Danjon limit** - minimum arc of light 7.0 deg (thin-crescent visibility
+  limit).
+* **Odeh (2006)** - zones A-D from arc of vision, crescent width and
+  elongation.
+
+### HilalPy dataset
 
 `cond` / `equa` / `thres` use the HilalPy `Final.csv` observation database
 (8,004 night-sighting records). The upstream library downloaded this file from a
 GitHub URL that no longer exists, so a copy (pulled from the historical commit)
 is bundled at `data/Final.csv`.
+
+### NASA / JPL HORIZONS
+
+The verification panel queries the
+[NASA/JPL HORIZONS](https://ssd.jpl.nasa.gov/hORIZONS/) ephemeris system
+for independent cross-checks of sunset, moonset, moon altitude and
+illumination.
 
 ## Tests
 
