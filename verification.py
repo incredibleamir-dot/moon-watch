@@ -13,8 +13,8 @@ Both functions return plain data dicts so the pygame UI and the test-suite can
 share them.
 """
 
-import math
 import re
+import time
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
@@ -59,6 +59,8 @@ def _fetch(command, ut_start, ut_stop, step, lat, lon, quantities):
                 return resp.read().decode("ascii", "replace")
         except Exception as exc:
             last = exc
+            if attempt < 2:
+                time.sleep(1.0)
     raise last
 
 

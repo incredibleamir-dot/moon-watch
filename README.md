@@ -1,356 +1,252 @@
-# Moon Sight - Ramadan / Eid new-crescent viewer
+# Moon Watch — Crescent Visibility Workstation
 
-A standalone pygame desktop app for predicting whether the new crescent of
-Ramadan / Eid can be seen on a given evening from a given location. The look
-matches the neon HUD style of the parent
-[`tiny-solarsystem`](https://github.com/incredibleamir-dot/tiny-solarsystem)
-project: dark futuristic panels, glowing borders, scanlines and a taskbar.
+A desktop application for predicting and analysing whether the new crescent of
+Ramadan / Eid can be seen on a given evening from a given location.
 
-This is the **2D desktop app** (the companion piece is the
-[`moon-watch-3d`](https://github.com/incredibleamir-dot/moon-watch-3d) repo,
-a live 3D Sun-Earth-Moon view).
+This is a **PySide6 / Qt refactor** of the original pygame app: the astronomy,
+analysis, calendar and verification engines are reused as-is, while the UI has
+been rebuilt as a proper desktop workspace — light enterprise theme, six
+tabbed views, dock-style tables and vector-rendered charts.
 
 ```
-python crescent_sighting.py
+python main.py
 ```
 
-Needs `pygame`, `numpy` and `pandas` (install once with `pip install -r
-requirements.txt`). The `solarsystem` astronomy library is vendored in the
-`vendor/` folder, so no astronomy dependency is needed. See *Download & run*
-below.
+Needs Python 3.11+, with `PySide6`, `PyVista` (incl. `pyvistaqt`), `numpy` and
+`pandas` (install once with `pip install -r requirements.txt`). The
+`solarsystem` astronomy library is vendored in `vendor/`, so no astronomy
+dependency is needed. `PyVista`/`vtk` power the interactive 3D Live sky, and
+`opencv-python` (`cv2`) encodes the 3D sky **MP4** export.
 
-## Features
+## Repository
 
-* **Sighting view** - an "evening sky, looking West" diagram with the Sun
-  half-sunk at the horizon at sunset, a warm sunset glow at the Sun's azimuth,
-  the young crescent (true illuminated fraction & bright-limb orientation), a
-  dotted altitude trail for the Moon over the evening, a drop-line from the Moon
-  to the horizon, a 14-evening altitude-at-sunset bar chart, and a visibility
-  verdict panel (sunset / moonset, lag, moon age in **days + hours**,
-  illumination, arc of light, arc of vision, crescent width).
-* **Analysis views** - faithful adaptations of the HilalPy `cond`, `equa` and
-  `thres` analyses rendered as charts:
-  * `cond`  - conditions: crescent altitude vs arc of light with the MABIMS line
-  * `equa`  - equation: daily error / comparison plot
-  * `thres` - threshold: line fit vs data for a chosen parameter (ArcL / MAlt /
-    Relative Azimuth / Lag / Age), cycled with the **X** key
-* **Visibility criteria** - MABIMS 2023, Danjon limit and Odeh (2006) zones A-D,
-  all shown in the panel with pass/fail indicators.
-* **Plain-language summary** - every evening gets a jargon-free reading ("the
-  moon is 19 hours old and 0.8% lit - a thin crescent..."), so non-technical
-  users can read the result without the astronomy.
-* **Analysis charts with labels** - the `cond` / `equa` / `thres` plots now have
-  axis titles, legends, captions and a white ring marking **THIS EVENING**, and
-  the ring moves as you step through dates.
-* **Verify view** - an independent check of our math:
-  * a live comparison of our sunset / moonset / altitude / arc of light /
-    illumination against the **NASA/JPL HORIZONS** ephemeris (works for past
-    and future dates, press **R** to run or re-run, **R** again after changing
-    the date);
-  * an offline comparison of our visibility verdict against **8,000 recorded
-    real-world sightings**, with per-method match rates.
-* **Ramadan & Eid dates** - a dialog (calendar button on the taskbar, or **D**)
-  that works out the previous and next **Ramadan**, **Eid ul-Fitr** and
-  **Eid ul-Adha** for the chosen location and date, using the app's own
-  local-crescent-visibility rule for each new month.
-* **Live view** - a real-time Sun-Earth-Moon diagram that refreshes every
-  5 seconds: the Moon's orbit around the Earth, the Moon's current position and
-  phase, a shaded arc of the orbit where the Moon is above the horizon at your
-  location *right now*, and day / night shading on the Earth with your location
-  marked on it.
+* **This port** — [github.com/incredibleamir-dot/Crescent-Visibility-Workstation](https://github.com/incredibleamir-dot/Crescent-Visibility-Workstation)
+* **Original pygame app** — [github.com/incredibleamir-dot/moon-watch](https://github.com/incredibleamir-dot/moon-watch)
+
+## Workspaces
+
+| # | View | What it does |
+|---|------|--------------|
+| 1 / S | Sighting | the prediction for the chosen evening: sky diagram + altitude chart + verdict panel; press **G** for a world crescent-visibility map |
+| 2 / C | Condition | crescent altitude vs arc of light over the recorded sighting database |
+| 3 / E | Equation | lag time vs arc of light against the visibility boundary curve |
+| 4 / H | Threshold | box-and-whisker of minimum observed values for one parameter (cycle with X) |
+| 5 / V | Verify | check our math against NASA/JPL HORIZONS and against real recorded sightings |
+| 6 / L | Live | an interactive 3D altitude–azimuth sighting sky of the Sun and Moon right now (updates every 5 s), with a pannable 2D horizon sky map of the Sun, Moon & planets switchable from the View selector |
+
+Every analysis chart shows a **white highlight ring** marking the evening you
+have selected, and the ring follows you as you step through dates.
 
 ## Screenshots
 
-![Sighting view](screenshots/view_sight.png)
+| Sighting | Condition |
+|---|---|
+| ![Sighting](assets/screenshots/shot-sight.png) | ![Condition](assets/screenshots/shot-cond.png) |
 
-![Condition analysis](screenshots/view_cond.png)
+| Equation | Threshold |
+|---|---|
+| ![Equation](assets/screenshots/shot-equa.png) | ![Threshold](assets/screenshots/shot-thres.png) |
 
-![Equation analysis](screenshots/view_equa.png)
+| Verification | Live |
+|---|---|
+| ![Verification](assets/screenshots/shot-verify.png) | ![Live](assets/screenshots/shot-live.png) |
 
-![Threshold analysis](screenshots/view_thres.png)
+| 3D Alt–Az sighting sky (Live) |
+|---|
+| ![3D Alt-Az sighting sky](assets/screenshots/shot-skyview-3d.png) |
 
-![Verify view](screenshots/view_verify.png)
+| 2D Horizon sky map (Live) |
+|---|
+| ![2D Horizon sky map](assets/screenshots/shot-skymap.png) |
 
-![Setup](screenshots/view_setup.png)
+| 3D sky MP4 export (24 h orbit) |
+|---|
+| ![3D sky MP4 demo](assets/screenshots/vid-live-3D.gif) |
 
-![Ramadan & Eid dates](screenshots/view_dates.png)
+| Ramadan & Eid dates | User Guide |
+|---|---|
+| ![Ramadan & Eid dates](assets/screenshots/shot-dates.png) | ![User Guide](assets/screenshots/shot-guide.png) |
 
-![About](screenshots/view_about.png)
+| Global visibility map |
+|---|
+| ![Global visibility map](assets/screenshots/shot-global.png) |
 
-## Download & run
-
-```
-pip install -r requirements.txt
-python crescent_sighting.py
-```
-
-* The app uses `pygame` (UI) and `numpy` / `pandas` (analysis charts) from PyPI
-  - they are **not** bundled, so a one-time `pip install -r requirements.txt`
-  is needed.
-* The `solarsystem` astronomy library is vendored in the repo's
-  `vendor/solarsystem/` folder - it has no external dependencies, so nothing
-  extra is needed for it.
+A detailed, in-app **User Guide** (Help ▸ Moon Watch User Guide, Ctrl+F1)
+explains how to read every chart, how sunset / moonset, moon age,
+illumination and crescent width are computed, and the maths behind the
+MABIMS 2023 / Danjon / Odeh (2006) criteria.
 
 ## Controls
 
-| Key        | Action                         |
-|------------|--------------------------------|
-| Left/Right | previous / next day            |
-| T          | jump to today                  |
-| 1-4        | switch views                   |
-| 5 or V     | switch to the Verify view      |
-| 6 or L     | switch to the Live view        |
-| R          | (re)run the NASA HORIZONS check|
-| X          | cycle threshold parameter      |
-| D          | show/hide Ramadan & Eid dates  |
-| I          | show/hide About                |
-| F11        | toggle fullscreen              |
-| Esc        | close modal / exit fullscreen  |
-| **Quit**   | use the power button on the taskbar to exit |
+| Key | Action |
+|-----|--------|
+| Left / Right | previous / next day |
+| T | jump to today |
+| 1–6 or S / C / E / H / V / L | switch workspace |
+| R | (re)run the NASA HORIZONS comparison |
+| X | cycle the Threshold-analysis parameter |
+| G | toggle the Sighting map (local sky / global visibility map) |
+| D | Ramadan & Eid dates dialog |
+| Ctrl+L | date & location dialog |
+| Ctrl+F1 | User Guide |
+| F1 | About |
+| F11 | toggle fullscreen |
+| Ctrl+Q | quit |
 
-Esc never quits the program - use the taskbar power button instead.
+## Verdict panel (Sighting view)
 
-## Setup
+- **CRESCENT VISIBLE** / **BORDERLINE** / **NOT VISIBLE** banner (amber
+  border-line cases, red for not visible; **NO SUNSET** when the Sun never
+  sets that day).
+- Evening parameters: sunset / moonset, lag, best viewing time, moon age
+  (days + hours), illumination, arc of light, moon altitude, arc of vision,
+  crescent width.
+- Criteria check with per-rule pass/fail:
+  - **MABIMS 2023** — arc of light ≥ 6.4° and moon altitude ≥ 3.0°.
+  - **Danjon** — arc of light ≥ 7.0° (thin-crescent visibility limit).
+  - **Odeh 2006** — zone A (easy naked eye) … D (not visible).
+- **IN PLAIN WORDS** — the same conclusion as a jargon-free sentence.
 
-Use the **Setup** button (the gear on the taskbar at the bottom) to change the
-date with the steppers and to pick a location:
+## Ramadan & Eid dates dialog
 
-* 9 city presets (**Ludhiana**, **Roorkee**, Delhi, Makkah, Karachi, Kuala
-  Lumpur, Jakarta, London, New York), or
-* custom latitude / longitude / UTC offset fields (type a value and press
-  **Enter** / **Tab**).
+Lists the previous and next **Ramadan**, **Eid ul-Fitr** (1 Shawwal) and
+**Eid ul-Adha** (10 Dhul Hijjah) for the chosen location and date, using the
+app's own local-crescent-visibility rule for each new month.
 
-## How to use the app
+The Islamic day starts at **sunset**: the "first night" of each month is the
+evening when the young crescent becomes visible *after* the preceding civil
+day, so each date is presented as *starts at sunset on evening E (AH) — first
+civil day: E + 1*. Because the same physics drives the whole app, these dates
+can legitimately differ from a fixed civil calendar.
 
-1. **Start it** from the repo folder:
-   ```
-   python crescent_sighting.py
-   ```
-2. **Pick your place and evening** - open **Setup** (the gear button on the
-   taskbar at the bottom). Choose a city preset or type a custom latitude /
-   longitude / UTC offset, then step to the date you want (the **+**/**-**
-   steppers, or the **Left** / **Right** keys; **T** jumps to today).
-3. **Switch views** with the taskbar buttons or the number keys:
+## Verify view
 
-   | # | View | What it does |
-   |---|------|--------------|
-   | 1 | Sighting | the prediction for the chosen evening (sky diagram + verdict panel) |
-   | 2 | Condition | crescent altitude vs arc of light over the 8,000+ sighting database |
-   | 3 | Equation | lag time vs arc of light against the visibility boundary curve |
-   | 4 | Threshold | the minimum observed values for one parameter (cycle with **X**) |
-   | 5 / V | Verify | check our math against NASA/JPL HORIZONS and real sightings |
-   | 6 / L | Live | the Sun-Earth-Moon system right now (updates every 5 s) |
+- **NASA/JPL HORIZONS** — compares our sunset / moonset / moon altitude /
+  azimuth / arc of light / illumination against the online ephemeris
+  (**requires internet access**; press R, and press R again after changing
+  the date).
+- **Recorded sightings** — compares our verdict against ~8,000 real-world
+  sightings bundled in `data/Final.csv`, with per-method match rates
+  (naked eye / optical aid).
 
-4. **Step through evenings** - use **Left** / **Right** to move day by day. The
-   white ring on the analysis charts follows the evening you select, so you can
-   see the crescent's position move across the historical data.
-5. **Quit** with the power button on the taskbar (Esc only closes pop-ups and
-   never quits the program).
+Both checks run in background sub-processes, so the UI stays fully
+responsive while they work.
 
-## How to read the data
+## Live view
 
-### Sighting view (1)
+An **interactive 3D Altitude–Azimuth Sighting Sky** of the Moon and Sun as seen
+from the observer's location, rendered with PyVista and recomputed from your
+clock every 5 seconds, or scrubbed through the 24 h with the slider (**NOW**
+snaps back to the live instant).
 
-**Left - the sky diagram** ("EVENING SKY - looking West"):
+The hemisphere around you is drawn in the local Alt–Az frame: compass
+cardinals (N highlighted), altitude rings, an azimuth grid, the horizon rim and
+a translucent earth-textured ground. The Sun is a glowing sphere; the Moon is
+shown at its **true phase** — the lit crescent is shaded from the Sun's
+direction, so it correctly faces and thins as the real Moon does. Observer →
+Sun / Moon lines, a dashed Sun–Moon separation link, and trails the two bodies
+trace over ±3 h (toggle Moon/Sun path) help read the geometry at a glance.
 
-* The horizon line with compass labels **S / SW / W / NW / N**; the curved
-  rings are altitude marks every **10°**.
-* The **Sun** is drawn half-sunk at the horizon at sunset, with a warm glow
-  marking its azimuth.
-* The **Moon** (cyan ring) is drawn at its true position; the crescent shape
-  shows the real illuminated fraction and bright-limb orientation. The **dotted
-  trail** traces the Moon's path over the evening, and the **drop-line** from the
-  Moon to the horizon shows how high it is.
-* The info strip under the title gives **SUNSET / MOONSET** times, **MOON ALT**,
-  **ARC LIGHT** and the moon **AGE**.
+Screen-facing readout boxes (Sun / Moon name, Alt, Az, plus the observer's
+location **name and Lat/Lon**) always face the viewer. Camera buttons (Reset,
+Top, North, South, East, West) plus click-drag rotate / scroll-zoom give full
+control, and the **Grid**, **Moon path**, **Sun path** and **Labels** toggles
+declutter the scene. All values come from the same astronomy engine that drives
+every other view, so the Live sky can never disagree with the Sighting verdict.
 
-**Left - the 14-evening chart** - the Moon's altitude at sunset for the next
-14 evenings. This is the practical one: it shows you the first evening the
-crescent clears the horizon and becomes worth looking for.
+From **Tools ▸ Export animation (GIF)...** you can also export the 3D sky as an
+**MP4** (`sky-3d-<date>.mp4`): a small preview window opens, the dome is played
+through a complete 24-hour Sun/Moon cycle while the camera slowly orbits 360°,
+and the window closes itself when the file is written (requires OpenCV).
 
-**Right - the verdict panel**:
+### Horizon sky map (Live view)
 
-* The big banner: **CRESCENT VISIBLE** (green), **BORDERLINE** (amber) or
-  **NOT VISIBLE** (red); **NO SUNSET** if the Sun doesn't set that day.
-* The numbers table, read from top to bottom:
-  * **Sunset / Moonset** - local clock times.
-  * **Lag** - how many minutes after sunset the Moon sets ("above horizon all
-    evening" or "moon already set" when the Moon doesn't set normally).
-  * **Best time** - the recommended moment to look.
-  * **Moon age** - since the last new moon, shown as **days + hours**
-    (e.g. `1d 19h`).
-  * **Illumination** - how much of the Moon's disk is lit (%).
-  * **Arc of light** - the Moon's angular separation from the Sun in degrees.
-  * **Moon altitude** - how high the Moon is at sunset, in degrees.
-  * **Arc of vision** - the Moon's angular separation from the Sun measured
-    along the Moon's orbital path.
-  * **Crescent width** - the width of the lit crescent in arc-minutes.
-* The **criteria check** (green = pass, red = fail):
-  * **MABIMS 2023** - needs arc of light >= 6.4° and moon altitude >= 3.0°.
-  * **Danjon** - needs arc of light >= 7.0° (the thin-crescent visibility limit).
-  * **Odeh 2006** - a zone A-D from arc of vision, width and elongation:
-    * **A** - easily visible to the naked eye
-    * **B** - visible with optical aid / maybe naked eye
-    * **C** - visible with optical aid only
-    * **D** - not visible
-* The verdict combines these: zone A or B -> **CRESCENT VISIBLE**; zone C or a
-  MABIMS/Danjon pass -> **BORDERLINE**; otherwise **NOT VISIBLE**.
-* **IN PLAIN WORDS** - the same conclusion written as a normal sentence
-  ("The moon is 19h old and 0.8% lit - a thin crescent..."), for when you don't
-  want the numbers.
+The **View** selector above the 3D sky switches to a **2D Horizon Sky Map** — a
+cylindrical *azimuth × altitude* panorama of the whole sky around you, panning
+freely across the full 360° with click-drag, the mouse wheel, or the arrow and
+compass buttons. It is real-time (recomputed with the same 5 s clock): the **Sun**,
+**Moon** at its true phase, and the bright planets (Mercury, Venus, Mars, Jupiter,
+Saturn) are drawn at their live positions with labels, each with its **day-long
+altitude path** traced across the sky, plus the **ecliptic** line. The background
+**transitions seamlessly from day to twilight to night** as the Sun moves, with a
+warm glow resting on the horizon toward the Sun at twilight; compass directions are
+marked below the horizon. As with the 3D sky, every value comes from the same
+astronomy engine, so the map always agrees with the rest of the app.
 
-### Analysis views (2-4)
+### Aim the sky map from your phone (SensorCast WebSocket)
 
-These compare the chosen evening against **8,000+ real recorded sightings**
-(GREEN dot = the crescent was seen, RED = it was not):
+Drive the live sky by physically pointing your phone at the sky — the phone
+streams its rotation-vector orientation (and optionally its GPS location) over
+the **SensorCast** WebSocket service, which the desktop subscribes to:
 
-* **Condition (2)** - X = arc of light, Y = moon altitude. The amber lines are
-  the MABIMS limits; if your evening (white ring) falls above and to the right
-  of them, similar conditions were seen before.
-* **Equation (3)** - X = lag time (minutes), Y = arc of light. The magenta
-  curve is the visibility boundary from the data: evenings above the curve were
-  seen, evenings below were not.
-* **Threshold (4)** - box-and-whisker plot of the minimum observed value for one
-  parameter (**ArcL**, **MAlt**, **ArcV**, **W**, **LT**, **MA** - cycle with
-  **X**). The box holds the middle half of seen records, the white line is the
-  median, and the whiskers are the smallest and largest. The white line plus
-  label marks where **THIS EVENING** falls.
+1. On the phone install the **SensorCast** app (https://sensorcast.app), create
+   an account and start broadcasting **Rotation Vector** + **Magnetic Field**
+   (+ Accelerometer as backup) at the fastest delay (add a
+   GPS + Network Location stream if you also want live location). Note your
+   username.
+2. On the desktop **LIVE** page, type the username into the *Phone link* box and
+   press **Connect**. The box flips to **"streaming from \<username\>"** the
+   moment the subscription is accepted.
+3. With **Drive sky map from phone** ticked, stand on your spot and point the
+   **top edge of the phone** at the sky (laser-pointer pose; switch to *Back
+   camera* in *Point with* if you prefer the photograph pose): turning your
+   body pans left/right, tilting the top up/down sweeps vertically (the view
+   is clamped to 0–90° of altitude, horizon line pinned just below at -5°).
+   If the view lags your hand, point the top at the Moon/Sun, drag that body
+   to the middle and press **Calibrate...**.
 
-### Verify view (5 / V)
+A **GPS** frame from the phone also updates the live location (tick **Use phone
+GPS location** to apply it). A quick "figure-8" wave with the phone improves the
+compass calibration; the live **mag uT** readout shows field health (~25–65 uT
+is clean Earth field, far outside means indoor interference). Residual twist is
+what **North offset** + **Calibrate...** correct for.
 
-* **Left** - the same "all recorded sightings" scatter with **THIS EVENING**
-  ringed.
-* **Right** - a live comparison of our **Sunset / Moonset / Moon alt. / Moon
-  az. / Arc of light / Illumination** against the **NASA/JPL HORIZONS**
-  ephemeris. Press **R** to run it; each row shows OUR value, NASA's value and a
-  **PASS / FAIL** verdict, with a status line ("contacting NASA...",
-  "all within tolerance", etc.). If you change the date, press **R** again.
-* Below that, the **real-sightings** box shows how often our verdict matched the
-  recorded sightings, overall and per method (naked eye / optical aid).
+The two connections use the same wire format — Socket.IO namespace
+`/stream/<username>`, `role=subscriber` + heartbeat — whose parsing/aim math
+(`moonwatch/sensorcast.py`) is shared with the terminal capture tool
+`tools/sensorcast_capture.py`.
 
-### Live view (6 / L)
+**No phone handy?** `tools/phone_sim.py` remains as a *legacy* UDP simulator:
+it is kept for offline reference, but the desktop link now listens over
+WebSocket, so it is not wired to the current receiver.
 
-A top-down diagram of the Sun-Earth-Moon system, recomputed from your computer's
-clock every 5 seconds:
+## Global visibility map (Sighting view, key G)
 
-* The **Sun** (left) and the **Moon's orbit ring** around the **Earth**.
-* The **green arc** of the orbit is where the Moon would be above the horizon at
-  your chosen location right now; the rest of the ring is below the horizon.
-  The **Moon** is drawn at its true position and phase - a thin crescent when
-  young, full when opposite the Sun - ringed green when it is actually up for
-  you, grey when it is below the horizon (even if the diagram can still "see"
-  it behind the Earth).
-* The **Earth** (textured, from real satellite imagery) is shaded day / night:
-  the dark side faces away from the Sun, and the **amber dot** marks your
-  location at its true latitude / longitude, so you can see whether you are on
-  the daylight or night side. The Sun and Moon use real photographic textures
-  too (see *Credits*). If a texture is missing the view falls back to the plain
-  vector drawing automatically.
-* The right panel shows the live clock, Sun / Moon altitude and azimuth, the
-  lunar phase, age and illumination, today's moonrise / moonset, and the
-  usual sunset-based crescent verdict.
+Switch the Sighting map to **Global** to see, for the same evening, which
+places on Earth could sight the crescent: every 1° cell is evaluated at that
+place's *best time* — the same rules that drive the verdict pill below (Odeh
+2006 zones at sunset + 4/9 of the moonset lag, MABIMS 2023 and Danjon at
+their sunset/best instants) — then classified green (visible) / amber
+(borderline) / red (not visible), with the no-sunset polar band left clear.
+The two views therefore never disagree. The 1° grid (≈64k points) is computed
+in a background sub-process once per date and cached in memory, so stepping
+back and forth between dates is instant; your city is pinned on the map.
 
-### Ramadan & Eid dates dialog (calendar button / D)
-
-Opens a modal that lists the **previous and next** dates for **Ramadan**,
-**Eid ul-Fitr** (1 Shawwal) and **Eid ul-Adha** (10 Dhul Hijjah) for the chosen
-location and date. The month starts are found from the new-moon (conjunction)
-dates plus the app's own local rule: each month begins the day after the first
-evening on which the young crescent is actually above the horizon at sunset at
-your place, and the year is anchored to a well-known reference (1 Ramadan 1446 AH
-= 1 March 2025). Because it uses the same physics as the rest of the app, the
-dates can legitimately differ from a fixed civil calendar.
-
-## Credits
-
-### Inspiration
-
-This project grew out of
-[tiny-solarsystem](https://github.com/incredibleamir-dot/tiny-solarsystem),
-a kid-friendly solar system explorer built for a four-year-old's curiosity.
-The neon HUD style, dark futuristic panels and glowing borders all trace
-back to that first experiment.
-
-### Orbital calculations
-
-The orbital model is based on Paul Schlyter's
-*[How to compute planetary positions](https://stjarnhimlen.se/comp/ppcomp.html)*,
-vendored as the `solarsystem` package in this repo's `vendor/` folder. The
-library is by **Ioannis Nasios** and is used with permission under the
-**MIT license** (Copyright (c) 2020, Ioannis Nasios).
-
-> If you use the solarsystem library in published work, please cite:
->
-> ```bibtex
-> @misc{nasios2026solarsystemvalidatedlightweightpython,
->       title={Solarsystem: A Validated Lightweight Python Package for Planetary
->              Positions and Solar-Lunar Event Calculations},
->       author={Ioannis Nasios},
->       year={2026},
->       eprint={2606.27055},
->       archivePrefix={arXiv},
->       primaryClass={astro-ph.EP},
->       url={https://arxiv.org/abs/2606.27055},
-> }
-> ```
-
-### Textures
-
-The textured Sun, Earth and Moon in the Live view use the free equirectangular
-maps from [Solar System Scope](https://www.solarsystemscope.com/textures/),
-licensed under the [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
-attribution license and bundled in the repo's `assets/` folder:
-
-* `assets/earth.jpg` - 2k earth day map
-* `assets/moon.jpg` - 2k moon map
-* `assets/sun.jpg` - 2k sun map
-
-### Visibility criteria
-
-Crescent visibility logic follows:
-
-* **MABIMS 2023** - minimum arc of light 6.4 deg, minimum moon altitude 3.0 deg.
-* **Danjon limit** - minimum arc of light 7.0 deg (thin-crescent visibility
-  limit).
-* **Odeh (2006)** - zones A-D from arc of vision, crescent width and
-  elongation.
-
-### HilalPy dataset
-
-`cond` / `equa` / `thres` use the HilalPy `Final.csv` observation database
-(8,004 night-sighting records). The upstream library downloaded this file from a
-GitHub URL that no longer exists, so a copy (pulled from the historical commit)
-is bundled at `data/Final.csv`.
-
-### NASA / JPL HORIZONS
-
-The verification panel queries the
-[NASA/JPL HORIZONS](https://ssd.jpl.nasa.gov/hORIZONS/) ephemeris system
-for independent cross-checks of sunset, moonset, moon altitude and
-illumination.
-
-## Tests
+## Project layout
 
 ```
-python -m pytest tests
+main.py                 entry point
+tools/sensorcast_capture.py   terminal SensorCast WebSocket capture tool
+tools/phone_sim.py      legacy UDP desktop phone simulator (reference only)
+moonwatch/
+  theme.py              palette, stylesheet, fonts
+  controller.py         shared state + computation threads
+  charts.py             vector canvas widgets (sky, altitude, scatter, box)
+  sighting_sky_3d.py    interactive 3D Alt–Az sighting sky (PyVista)
+  sky_map.py            2D pannable horizon sky map (Live view)
+  sensorcast.py         SensorCast wire protocol parsing + aim math (shared)
+  phone.py              SensorCast WebSocket phone-link receiver
+  pages.py              the six workspace pages
+  dialogs.py            date & location, Ramadan/Eid dates, About
+  app_window.py         main window, menus, toolbar, shortcuts
+astronomy.py            core ephemeris engine (reused, unchanged)
+analysis.py             analysis engines (reused, unchanged)
+islamic.py              Islamic calendar (reused, unchanged)
+verification.py         HORIZONS + sightings checks (reused, unchanged)
+vendor/solarsystem/     vendored astronomy library (unchanged)
+data/Final.csv          recorded-sightings database
+assets/                 Sun / Earth / Moon texture maps
 ```
 
-Runs headless (no window needed). The suite covers the astronomy against known,
-independently-verified values, the analysis chart builders, the app layout and
-input handling, and the verification module - including a **live** check of both
-a past (Ludhiana 2024-04-09) and a future (Mecca 2026-08-20) date against the
-NASA/JPL HORIZONS ephemeris. The online tests skip automatically when offline.
-
-## Requirements
-
-Install once with pip (a `requirements.txt` at the repo root lists them):
-
-```
-pip install -r requirements.txt
-```
-
-* `pygame` - UI
-* `numpy`, `pandas` - analysis charts
-
-The `solarsystem` astronomy library is vendored at `vendor/solarsystem/` and has
-no external dependencies, so no astronomy package needs to be installed.
+See `PYGAME_TO_PYSIDE6.md` for the port mapping and `CREDITS.md` for
+attribution.
