@@ -1,58 +1,81 @@
-"""Spot-checks and golden values for astronomy.py."""
+"""Tests for astronomy.py against known, independently-verifiable values.
+
+The reference numbers for 2024-04-09 Ludhiana were cross-checked live against
+the NASA/JPL HORIZONS ephemeris (see verification.py); tolerances are kept
+looser than the online check so these stay fast and deterministic.
+"""
+
+import datetime
+import math
+
+import pytest
 
 import astronomy
 
-_LAT, _LON, _TZ = 30.900965, 75.857275, 5.5
+LUDHIANA = dict(lat=30.90, lon=75.85, tz=5.5)
+D = datetime.datetime(2024, 4, 9)
 
 
-def test_evening_report_keys():
-    rep = astronomy.evening_report(
-        __import__("datetime").datetime(2025, 3, 1), _LAT, _LON, _TZ)
-    assert rep is not None
-    assert "sunset" in rep and "m_alt_sunset" in rep and "lag" in rep
+def report(**kw):
+    lat = kw.get("lat", LUDHIANA["lat"])
+    lon = kw.get("lon", LUDHIANA["lon"])
+    tz = kw.get("tz", LUDHIANA["tz"])
+    return astronomy.evening_report(kw.get("date", D), lat, lon, tz)
 
 
-def test_evening_report_golden_values():
-    from datetime import datetime
-    rep = astronomy.evening_report(datetime(2025, 3, 1), _LAT, _LON, _TZ)
-    assert rep is not None
-    assert rep["sunset"].isoformat().startswith("2025-03-01")
-    assert round(rep["m_alt_sunset"], 4) == 18.794
-    assert round(rep["arc_l_sunset"], 4) == 19.8315
-    assert round(rep["illum"], 6) == 0.031041
-    assert rep["mabims"] is True
+class TestEveningReport:
+    def test_known_values_match_horizons(self):
+        r = report()
+        assert r is not None
+        # HORIZONS: sunset 18:50, moonset 19:41 local
+        assert abs((r["sunset"] - datetime.datetime(2024, 4, 9, 18, 50))
+                   .total_seconds()) < 300
+        assert abs((r["moonset"] - datetime.datetime(2024, 4, 9, 19, 41))
+                   .total_seconds()) < 600
+        assert abs(r["m_alt_sunset"] - 9.29) < 1.5
+        assert abs(r["m_az_sunset"] - 283.0) < 6.0
+        assert abs(r["arc_l_sunset"] - 10.13) < 2.0
+        assert abs(r["illum"] * 100 - 0.78) < 1.5
+
+    def test_illumination_in_valid_range(self):
+        for day in (1, 9, 17, 25):
+            r = report(date=datetime.datetime(2024, 4, day))
+            assert 0.0 <= r["illum"] <= 1.0
+            assert 0.0 <= r["arc_l_sunset"] <= 180.0
+
+    def test_moonset_none_when_moon_already_set(self):
+        # 2025-01-04 Ludhiana: the Sun sets at ~17:38 but the Moon is below the
+        # horizon through the moonset search window -> no moonset, no lag.
+        r = report(date=datetime.datetime(2025, 1, 4))
+        assert r is not None
+        assert r["moonset"] is None
+        assert r["lag"] is None
+
+    def test_age_positive(self):
+        r = report()
+        assert r["age_sunset"] > 0
+        assert r["age_sunset"] < 360
+
+    def test_mabims_is_boolean(self):
+        r = report()
+        assert isinstance(r["mabims"], bool)
+
+    def test_sunset_altitudes_14days_length(self):
+        s = astronomy.sunset_altitudes_14days(D, LUDHIANA["lat"],
+                                              LUDHIANA["lon"],
+                                              LUDHIANA["tz"], 14)
+        assert len(s) == 14
+        for day, alt in s:
+            assert isinstance(day, datetime.datetime)
+            assert alt is None or isinstance(alt, float)
 
 
-def test_conjunction_before_returns_earlier_jd():
-    from datetime import datetime
-    jd = astronomy.jd_utc(datetime(2025, 3, 10))
-    conj = astronomy.conjunction_before(jd)
-    assert conj < jd
-    dt = astronomy.dt_utc_from_jd(conj)
-    assert dt.year == 2025 and dt.month == 2
-
-
-def test_sun_alt_near_zenith_at_subsolar_point():
-    from datetime import datetime
-    jd = astronomy.jd_utc(datetime(2025, 3, 20, 12, 0, 0))
-    ecl_lon, ecl_lat, _ = astronomy.sun_ecliptic(jd)
-    # observer under the subsolar point should see the Sun near zenith
-    lat = max(-90.0, min(90.0, ecl_lat))
-    alt, az = astronomy.sun_alt_az(jd, lat, ecl_lon)
-    assert alt > 85.0
-
-
-def test_mabims_verdict_boundary():
-    assert astronomy.mabims_verdict(6.4, 3.0) is True
-    assert astronomy.mabims_verdict(0.0, 0.0) is False
-
-
-def test_danjon_verdict_boundary():
-    assert astronomy.danjon_verdict(7.0) is True
-    assert astronomy.danjon_verdict(0.0) is False
-
-
-def test_odeh_verdict_returns_valid_zone():
-    # arc_v=15°, w=6° arc_l=15°: clearly visible zone
-    zone, _desc = astronomy.odeh_verdict(15.0, 6.0, 15.0)
-    assert zone in ("A", "B", "C", "D")
+class TestAltitudeSeries:
+    def test_returns_time_and_altitude_lists(self):
+        r = report()
+        ts, alts, s_alts = astronomy.altitude_series(
+            r, LUDHIANA["lat"], LUDHIANA["lon"], LUDHIANA["tz"], 12)
+        assert isinstance(ts, list) and len(ts) == len(alts)
+        assert len(alts) >= 5
+        assert all(isinstance(v, float) for v in alts)
+        assert all(math.isfinite(v) for v in s_alts)

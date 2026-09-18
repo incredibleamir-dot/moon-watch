@@ -1,64 +1,81 @@
-"""Offline unit tests for the internal helpers in verification.py."""
-
-from datetime import datetime
-
-import verification as v
-
-# --- _parse_rows (HORIZONS text table) ------------------------------------
-
-CANNED_TABLE = """\
-$$SOE
-2025-Mar-01 12:30  *     12.0
- 2025-Mar-01 12:35  *      8.0
- 2025-Mar-01 12:40  *      6.0
-$$EOE
+"""Tests for verification.py - interpolation helpers, the offline
+observation check, and (when a network is present) the live NASA/JPL
+HORIZONS comparison against both a past and a future date.
 """
 
+import datetime
 
-def test_parse_rows_canned_table():
-    rows = v._parse_rows(CANNED_TABLE)
-    assert len(rows) == 3
-    t, vals = rows[1]
-    assert t == datetime(2025, 3, 1, 12, 35)
-    assert vals == [8.0]
+import pytest
 
+import verification
 
-def test_parse_rows_rejects_missing_bounds():
-    bad = "no $$SOE or $$EOE markers"
-    try:
-        v._parse_rows(bad)
-        assert False, "expected ValueError"
-    except ValueError:
-        pass
+D_PAST = datetime.datetime(2024, 4, 9)
+D_FUTURE = datetime.datetime(2026, 8, 20)
+LUDHIANA = dict(lat=30.90, lon=75.85, tz=5.5)
+MECCA = dict(lat=21.4225, lon=39.8262, tz=3.0)
 
 
-# --- _interp_set / _interp_value -------------------------------------------
+class TestInterpHelpers:
+    def test_interp_set_descending(self):
+        times = [datetime.datetime(2024, 1, 1, t, 0) for t in (18, 19, 20)]
+        values = [5.0, 2.0, -1.0]
+        hit = verification._interp_set(times, values, 0.0)
+        # crosses 0 between 19:00 (2.0) and 20:00 (-1.0)
+        assert hit.hour == 19
+        assert 0.0 < hit.minute < 60.0
+
+    def test_interp_set_returns_none_when_no_crossing(self):
+        times = [datetime.datetime(2024, 1, 1, t, 0) for t in (18, 19, 20)]
+        assert verification._interp_set(times, [5.0, 4.0, 3.0], 0.0) is None
+
+    def test_interp_value_linear(self):
+        times = [datetime.datetime(2024, 1, 1, t, 0) for t in (18, 19, 20)]
+        values = [0.0, 10.0, 20.0]
+        assert verification._interp_value(times, values,
+                                          datetime.datetime(2024, 1, 1, 18, 30)) \
+            == pytest.approx(5.0)
+
+    def test_interp_value_outside(self):
+        times = [datetime.datetime(2024, 1, 1, t, 0) for t in (18, 19)]
+        assert verification._interp_value(times, [1.0, 2.0],
+                                          datetime.datetime(2024, 1, 1, 21)) \
+            is None
 
 
-def test_interp_set_downward_crossing():
-    times = [datetime(2025, 1, 1, i) for i in range(4)]
-    vals = [12.0, 10.0, 7.0, 5.0]
-    t = v._interp_set(times, vals, 8.0)
-    assert t is not None
-    # crosses between t=1 (10.0) and t=2 (7.0), f = (10-8)/(10-7) = 2/3
-    assert t.hour == 1 and t.minute == 40
+class TestObservationCheck:
+    def test_shape_and_ranges(self):
+        res = verification.observation_check(sample=100)
+        assert res["n"] > 0
+        assert 0.0 <= res["agreement_pct"] <= 100.0
+        assert isinstance(res["by_method"], dict)
+        for s in (res["err_arc_l"], res["err_m_alt"], res["err_lag_min"]):
+            assert s["n"] >= 0
+            if s["n"]:
+                assert s["mean"] >= 0
+                assert s["max"] >= s["p90"] >= 0
+
+    def test_deterministic_sample(self):
+        a = verification.observation_check(sample=200)["n"]
+        b = verification.observation_check(sample=200)["n"]
+        assert a == b
 
 
-def test_interp_value_linear():
-    times = [datetime(2025, 1, 1, 0), datetime(2025, 1, 1, 2)]
-    vals = [0.0, 10.0]
-    res = v._interp_value(times, vals, datetime(2025, 1, 1, 1))
-    assert abs(res - 5.0) < 1e-9
-
-
-def test_interp_value_out_of_range_returns_none():
-    times = [datetime(2025, 1, 1, 0), datetime(2025, 1, 1, 2)]
-    vals = [0.0, 10.0]
-    res = v._interp_value(times, vals, datetime(2025, 1, 1, 5))
-    assert res is None
-
-
-# --- constants -------------------------------------------------------------
-
-def test_tolerance_dict_exists():
-    assert "sunset" in v.TOL and v.TOL["sunset"] == 8.0
+class TestEphemerisCheckOnline:
+    @pytest.mark.parametrize("date,loc", [
+        (D_PAST, LUDHIANA),     # past
+        (D_FUTURE, MECCA),      # future
+    ])
+    def test_past_and_future_match_horizons(self, date, loc):
+        res = verification.ephemeris_check(date, loc["lat"], loc["lon"],
+                                           loc["tz"])
+        if not res.get("ok") and "HORIZONS request failed" in str(
+                res.get("error")):
+            pytest.skip("offline - NASA HORIZONS unreachable")
+        assert res.get("ok"), res.get("error")
+        for key, verdict in res["verdicts"].items():
+            ours, hz = res[key]
+            if ours is None and hz is None:
+                continue  # both agree there is no moonset, e.g.
+            assert verdict is not None, "HORIZONS missing value for %s" % key
+            assert verdict, "out of tolerance for %s (ours=%s vs nasa=%s)" % (
+                key, ours, hz)

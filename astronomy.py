@@ -31,12 +31,18 @@ References:
 import functools
 import math
 import os
+import sys
 import datetime as _dt
 from datetime import datetime, timedelta
 
 LIB_DIR = os.path.dirname(os.path.abspath(__file__))
+if LIB_DIR not in sys.path:
+    sys.path.insert(0, LIB_DIR)
+VENDOR = os.path.join(LIB_DIR, "vendor")
+if os.path.isdir(VENDOR) and VENDOR not in sys.path:
+    sys.path.insert(0, VENDOR)
 
-from solarsystem import Moon, Geocentric  # noqa: E402
+from solarsystem import Moon          # noqa: E402
 from solarsystem.functions import normalize  # noqa: E402
 
 # Altitude of the disk centre at rise/set: the upper limb touches the horizon
@@ -213,50 +219,6 @@ def moon_alt_az(jd, lat, lon):
     return ecl2alt_az(lon_m, lat_m, jd, lat, lon)
 
 
-# ---------------------------------------------------------------------------
-# Planets (via the vendored solarsystem library)
-# ---------------------------------------------------------------------------
-
-_PLANET_POS = {}
-_PLANET_POS_ORDER = []
-
-
-def planet_ecliptic(jd, name):
-    """Geocentric ecliptic (lon, lat, dist AU) of a planet at Julian date ``jd``.
-
-    Positions come from the vendored ``solarsystem`` package, so no network is
-    needed and results agree with the rest of this module's coordinate frame.
-    Distances are in AU (Earth radii for the Moon; here the library returns
-    AU).  Note: the library's returned elements are degrees / AU.
-    """
-    p = _planet_positions(jd)
-    return p[name]
-
-
-def _planet_positions(jd):
-    key = round(jd, 4)
-    if key in _PLANET_POS:
-        return _PLANET_POS[key]
-    dt = dt_utc_from_jd(jd)
-    minute = dt.minute + dt.second / 60.0
-    g = Geocentric(year=dt.year, month=dt.month, day=dt.day,
-                   hour=dt.hour, minute=minute, UT=0, dst=0,
-                   plane="ecliptic", precession=True)
-    res = g.position()
-    _PLANET_POS[key] = res
-    _PLANET_POS_ORDER.append(key)
-    while len(_PLANET_POS_ORDER) > 1024:
-        old = _PLANET_POS_ORDER.pop(0)
-        _PLANET_POS.pop(old, None)
-    return res
-
-
-def planet_alt_az(jd, name, lat, lon):
-    """Local (alt, az) of a named planet for an observer at (lat, lon)."""
-    lon_p, lat_p, _ = planet_ecliptic(jd, name)
-    return ecl2alt_az(lon_p, lat_p, jd, lat, lon)
-
-
 def ecl2radec(ecl_lon, ecl_lat, jd):
     """Ecliptic (lon, lat) -> equatorial (RA, Dec)."""
     ob = math.radians(obliquity(jd))
@@ -414,15 +376,12 @@ def conjunction_before(jd):
         d = _signed_elongation(t)
         if prev_d * d < 0.0 and abs(prev_d) < 90.0 and abs(d) < 90.0:
             lo, hi = prev_t, t
-            lo_d = prev_d
             for _ in range(60):
                 mid = (lo + hi) / 2.0
-                mid_d = _signed_elongation(mid)
-                if lo_d * mid_d <= 0:
+                if _signed_elongation(lo) * _signed_elongation(mid) <= 0:
                     hi = mid
                 else:
                     lo = mid
-                    lo_d = mid_d
             last = (lo + hi) / 2.0
         prev_t, prev_d = t, d
         t += 0.125
